@@ -184,83 +184,116 @@ cat(toJSON(list(
 
   return (
     <WorkspaceLayout
-      leftWidth="260px"
+      leftWidth="280px"
       left={
         <div className="flex flex-col h-full">
-          <PanelHeader title="Variables" subtitle={`${displayColumns.length} columns`} />
-          <div className="flex-1 overflow-y-auto">
-            {displayColumns.map((col) => (
-              <button
-                key={col.name}
-                onClick={() => setSelectedCol(col.name === selectedCol ? null : col.name)}
-                className={`
-                  w-full text-left px-3 py-2.5 border-b border-gray-100
-                  flex items-center gap-2 hover:bg-gray-50 transition-colors
-                  ${selectedCol === col.name ? 'bg-psychr-accent' : ''}
-                `}
-              >
-                <span
-                  className={`text-xs px-1.5 py-0.5 rounded font-mono font-medium ${TYPE_COLORS[col.type]}`}
-                >
-                  {col.type.slice(0, 3)}
-                </span>
-                <span className="text-sm font-medium text-gray-800 truncate">{col.name}</span>
-                {col.missingCount > 0 && (
-                  <span className="ml-auto text-xs text-orange-500">{col.missingCount}NA</span>
-                )}
-              </button>
-            ))}
+          {/* Tab toggle */}
+          <div className="flex border-b border-gray-200 bg-white shrink-0">
+            <button
+              onClick={() => setLeftTab('variables')}
+              className={`flex-1 py-2 text-xs font-medium border-b-2 transition-colors ${
+                leftTab === 'variables'
+                  ? 'border-psychr-midblue text-psychr-midblue'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Variables
+            </button>
+            <button
+              onClick={() => setLeftTab('wrangle')}
+              className={`flex-1 py-2 text-xs font-medium border-b-2 transition-colors ${
+                leftTab === 'wrangle'
+                  ? 'border-psychr-midblue text-psychr-midblue'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Wrangle
+            </button>
           </div>
 
-          {/* Column details panel */}
-          {selectedColInfo && (
-            <div className="border-t border-gray-200 p-3 bg-white">
-              <p className="text-xs font-semibold text-gray-700 mb-1">{selectedColInfo.name}</p>
-              <div className="space-y-0.5 text-xs text-gray-600">
-                <div className="flex justify-between">
-                  <span>Type</span>
-                  <span className="font-medium">{selectedColInfo.type}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Missing</span>
-                  <span className="font-medium">{selectedColInfo.missingCount}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Unique</span>
-                  <span className="font-medium">{selectedColInfo.uniqueCount}</span>
-                </div>
-                {selectedColInfo.mean !== undefined && (
-                  <div className="flex justify-between">
-                    <span>Mean</span>
-                    <span className="font-medium">{selectedColInfo.mean?.toFixed(2)}</span>
-                  </div>
-                )}
-                {selectedColInfo.min !== undefined && (
-                  <div className="flex justify-between">
-                    <span>Range</span>
-                    <span className="font-medium">{selectedColInfo.min} – {selectedColInfo.max}</span>
-                  </div>
-                )}
+          {/* Variables panel */}
+          {leftTab === 'variables' && (
+            <>
+              <div className="flex-1 overflow-y-auto">
+                {displayColumns.map((col) => (
+                  <button
+                    key={col.name}
+                    onClick={() => setSelectedCol(col.name === selectedCol ? null : col.name)}
+                    className={`
+                      w-full text-left px-3 py-2.5 border-b border-gray-100
+                      flex items-center gap-2 hover:bg-gray-50 transition-colors
+                      ${selectedCol === col.name ? 'bg-psychr-accent' : ''}
+                    `}
+                  >
+                    <span
+                      className={`text-xs px-1.5 py-0.5 rounded font-mono font-medium ${TYPE_COLORS[col.type]}`}
+                    >
+                      {col.type.slice(0, 3)}
+                    </span>
+                    <span className="text-sm font-medium text-gray-800 truncate">{col.name}</span>
+                    {col.missingCount > 0 && (
+                      <span className="ml-auto text-xs text-orange-500">{col.missingCount}NA</span>
+                    )}
+                  </button>
+                ))}
               </div>
-            </div>
+
+              {/* Column details panel */}
+              {selectedColInfo && (
+                <div className="border-t border-gray-200 p-3 bg-white shrink-0">
+                  <p className="text-xs font-semibold text-gray-700 mb-1">{selectedColInfo.name}</p>
+                  <div className="space-y-0.5 text-xs text-gray-600">
+                    <div className="flex justify-between">
+                      <span>Type</span>
+                      <span className="font-medium">{selectedColInfo.type}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Missing</span>
+                      <span className="font-medium">{selectedColInfo.missingCount}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Unique</span>
+                      <span className="font-medium">{selectedColInfo.uniqueCount}</span>
+                    </div>
+                    {selectedColInfo.mean !== undefined && (
+                      <div className="flex justify-between">
+                        <span>Mean</span>
+                        <span className="font-medium">{selectedColInfo.mean?.toFixed(2)}</span>
+                      </div>
+                    )}
+                    {selectedColInfo.min !== undefined && (
+                      <div className="flex justify-between">
+                        <span>Range</span>
+                        <span className="font-medium">{selectedColInfo.min} – {selectedColInfo.max}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Import button */}
+              <div className="p-3 border-t border-gray-200 shrink-0">
+                <button
+                  onClick={handleImportFile}
+                  disabled={isLoading}
+                  className="w-full bg-psychr-midblue text-white text-sm font-medium py-2 px-3 rounded hover:bg-psychr-blue transition-colors disabled:opacity-50"
+                >
+                  {isLoading ? 'Importing...' : '+ Import Dataset'}
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  className="hidden"
+                  accept=".csv,.xlsx,.xls,.sav,.rds,.tsv"
+                />
+              </div>
+            </>
           )}
 
-          {/* Import button */}
-          <div className="p-3 border-t border-gray-200">
-            <button
-              onClick={handleImportFile}
-              disabled={isLoading}
-              className="w-full bg-psychr-midblue text-white text-sm font-medium py-2 px-3 rounded hover:bg-psychr-blue transition-colors disabled:opacity-50"
-            >
-              {isLoading ? 'Importing...' : '+ Import Dataset'}
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              className="hidden"
-              accept=".csv,.xlsx,.xls,.sav,.rds,.tsv"
-            />
-          </div>
+          {/* Wrangling panel */}
+          {leftTab === 'wrangle' && (
+            <WranglingPanel onRun={runR} />
+          )}
         </div>
       }
       center={
