@@ -362,8 +362,8 @@ cat(toJSON(list(
           </div>
         </div>
       }
-      rightWidth="320px"
-      right={<ScriptPanel />}
+      rightWidth="340px"
+      right={<RConsole />}
     />
   )
 }
