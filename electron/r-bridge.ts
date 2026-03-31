@@ -17,7 +17,8 @@
 
 import { spawn } from 'child_process'
 import { writeFileSync, unlinkSync, mkdtempSync } from 'fs'
-import { join, tmpdir } from 'path'
+import { join } from 'path'
+import { tmpdir } from 'os'
 
 export interface RResult {
   success: boolean
