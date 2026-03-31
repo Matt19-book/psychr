@@ -49,10 +49,12 @@ export function DataCleaningTab() {
   const activeDataset = usePsychrStore((s) => s.activeDataset)
   const setActiveDataset = usePsychrStore((s) => s.setActiveDataset)
   const appendToScript = usePsychrStore((s) => s.appendToScript)
+  const { run: runR } = useRBridge()
 
   const [isLoading, setIsLoading] = useState(false)
   const [filterText, setFilterText] = useState('')
   const [selectedCol, setSelectedCol] = useState<string | null>(null)
+  const [leftTab, setLeftTab] = useState<'variables' | 'wrangle'>('variables')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Use sample data if no dataset loaded
