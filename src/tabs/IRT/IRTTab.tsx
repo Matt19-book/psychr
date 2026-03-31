@@ -9,7 +9,7 @@ import { useState } from 'react'
 import { WorkspaceLayout, PanelHeader } from '../../components/layout/WorkspaceLayout'
 import { usePsychrStore } from '../../store'
 import { useRBridge } from '../../hooks/useRBridge'
-import { ScriptPanel } from '../../components/shared/ScriptPanel'
+import { RConsole } from '../../components/shared/RConsole'
 
 type IRTModel = 'rasch' | '2pl' | '3pl' | 'grm' | 'gpcm'
 
