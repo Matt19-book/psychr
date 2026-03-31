@@ -10,7 +10,9 @@
 import { useCallback, useRef, useState } from 'react'
 import { WorkspaceLayout, PanelHeader } from '../../components/layout/WorkspaceLayout'
 import { usePsychrStore, Dataset, DataColumn } from '../../store'
-import { ScriptPanel } from '../../components/shared/ScriptPanel'
+import { RConsole } from '../../components/shared/RConsole'
+import { WranglingPanel } from './WranglingPanel'
+import { useRBridge } from '../../hooks/useRBridge'
 
 // Sample dataset for demo when no file is loaded
 const SAMPLE_DATA = [
