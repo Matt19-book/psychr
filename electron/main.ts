@@ -86,3 +86,14 @@ ipcMain.handle('dialog:saveFile', async (_event, options) => {
 ipcMain.handle('shell:openExternal', async (_event, url: string) => {
   shell.openExternal(url)
 })
+
+// Read a file from disk and return its content as a UTF-8 string
+// Used by the renderer to parse CSV/TSV without going through R
+ipcMain.handle('file:read', async (_event, filePath: string) => {
+  try {
+    const content = readFileSync(filePath, 'utf-8')
+    return { success: true, content }
+  } catch (err: any) {
+    return { success: false, error: err.message }
+  }
+})
