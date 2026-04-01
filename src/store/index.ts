@@ -139,6 +139,7 @@ interface PsychrState {
   updateQualCode: (id: string, updates: Partial<QualCode>) => void
   removeQualCode: (id: string) => void
   addQualDocument: (doc: QualDocument) => void
+  addQualSegment: (docId: string, segment: QualSegment) => void
 
   // Markdown content
   markdownContent: string
