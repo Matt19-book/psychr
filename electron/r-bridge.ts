@@ -39,19 +39,25 @@ export class RBridge {
   }
 
   private detectRPath(): string {
-    const candidates = [
-      'Rscript',
-      '/usr/local/bin/Rscript',
-      '/usr/bin/Rscript',
-      '/opt/homebrew/bin/Rscript',
-      'C:\\Program Files\\R\\R-4.4.0\\bin\\Rscript.exe',
-      'C:\\Program Files\\R\\R-4.3.0\\bin\\Rscript.exe',
+    if (process.platform === 'win32') {
+      const winCandidates = [
+        'C:\\Program Files\\R\\R-4.5.0\\bin\\Rscript.exe',
+        'C:\\Program Files\\R\\R-4.4.0\\bin\\Rscript.exe',
+        'C:\\Program Files\\R\\R-4.3.0\\bin\\Rscript.exe',
+        'C:\\Program Files\\R\\R-4.2.0\\bin\\Rscript.exe',
+      ]
+      return winCandidates.find(existsSync) ?? 'Rscript'
+    }
+    // macOS / Linux — check known install locations before falling back to PATH
+    const unixCandidates = [
+      '/usr/local/bin/Rscript',          // CRAN .pkg on Intel Mac
+      '/opt/homebrew/bin/Rscript',       // Homebrew on Apple Silicon
+      '/opt/local/bin/Rscript',          // MacPorts
+      '/usr/bin/Rscript',                // Linux system R
+      '/usr/local/lib/R/bin/Rscript',
+      '/Library/Frameworks/R.framework/Resources/bin/Rscript', // CRAN .pkg fallback
     ]
-    // In production, try platform-specific detection
-    // For now, return the PATH version and let it fail gracefully
-    return process.platform === 'win32'
-      ? 'C:\\Program Files\\R\\R-4.4.0\\bin\\Rscript.exe'
-      : 'Rscript'
+    return unixCandidates.find(existsSync) ?? 'Rscript'
   }
 
   /**
