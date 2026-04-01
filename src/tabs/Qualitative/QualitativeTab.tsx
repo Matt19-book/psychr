@@ -60,16 +60,32 @@ export function QualitativeTab() {
 
   const handleTextSelect = () => {
     const selection = window.getSelection()
-    if (selection && selection.toString().trim()) {
-      setSelectedText(selection.toString().trim())
+    if (!selection || !selection.toString().trim() || !activeDoc) return
+    const text = selection.toString().trim()
+    // Calculate character offset within the document content string
+    const start = activeDoc.content.indexOf(text)
+    if (start !== -1) {
+      setSelectionOffsets({ start, end: start + text.length })
+    } else {
+      setSelectionOffsets(null)
     }
+    setSelectedText(text)
   }
 
   const handleApplyCode = (code: QualCode) => {
-    if (!selectedText) return
-    // In full implementation: create a QualSegment and highlight in the document
-    alert(`Code "${code.name}" applied to: "${selectedText.slice(0, 50)}..."`)
+    if (!selectedText || !activeDoc) return
+    const offsets = selectionOffsets ?? { start: 0, end: selectedText.length }
+    const segment: QualSegment = {
+      id: `seg_${Date.now()}`,
+      documentId: activeDoc.id,
+      codeIds: [code.id],
+      startOffset: offsets.start,
+      endOffset: offsets.end,
+      text: selectedText,
+    }
+    addQualSegment(activeDoc.id, segment)
     setSelectedText('')
+    setSelectionOffsets(null)
     window.getSelection()?.removeAllRanges()
   }
 
