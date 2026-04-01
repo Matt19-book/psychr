@@ -252,9 +252,6 @@ cat(toJSON(list(
                   >
                     <option value="">Select variable...</option>
                     {factorCols.map((c) => <option key={c.name} value={c.name}>{c.name}</option>)}
-                    {factorCols.length === 0 && (
-                      <option value="gender">gender (demo)</option>
-                    )}
                   </select>
                 </div>
               </div>
