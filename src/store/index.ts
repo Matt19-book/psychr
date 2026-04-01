@@ -171,25 +171,40 @@ export const usePsychrStore = create<PsychrState>()(
       // Datasets
       datasets: [],
       activeDatasetId: null,
+      activeDataset: null,
       addDataset: (dataset) =>
-        set((state) => ({
-          datasets: [...state.datasets, dataset],
-          activeDatasetId: state.activeDatasetId ?? dataset.id,
-        })),
+        set((state) => {
+          const newDatasets = [...state.datasets, dataset]
+          const newActiveId = state.activeDatasetId ?? dataset.id
+          return {
+            datasets: newDatasets,
+            activeDatasetId: newActiveId,
+            activeDataset: newDatasets.find((d) => d.id === newActiveId) ?? null,
+          }
+        }),
       removeDataset: (id) =>
+        set((state) => {
+          const newDatasets = state.datasets.filter((d) => d.id !== id)
+          const newActiveId = state.activeDatasetId === id ? (newDatasets[0]?.id ?? null) : state.activeDatasetId
+          return {
+            datasets: newDatasets,
+            activeDatasetId: newActiveId,
+            activeDataset: newDatasets.find((d) => d.id === newActiveId) ?? null,
+          }
+        }),
+      setActiveDataset: (id) =>
         set((state) => ({
-          datasets: state.datasets.filter((d) => d.id !== id),
-          activeDatasetId: state.activeDatasetId === id ? null : state.activeDatasetId,
+          activeDatasetId: id,
+          activeDataset: state.datasets.find((d) => d.id === id) ?? null,
         })),
-      setActiveDataset: (id) => set({ activeDatasetId: id }),
       updateDataset: (id, updates) =>
-        set((state) => ({
-          datasets: state.datasets.map((d) => (d.id === id ? { ...d, ...updates } : d)),
-        })),
-      get activeDataset() {
-        const state = get()
-        return state.datasets.find((d) => d.id === state.activeDatasetId) ?? null
-      },
+        set((state) => {
+          const newDatasets = state.datasets.map((d) => (d.id === id ? { ...d, ...updates } : d))
+          return {
+            datasets: newDatasets,
+            activeDataset: newDatasets.find((d) => d.id === state.activeDatasetId) ?? null,
+          }
+        }),
 
       // Results
       results: [],
