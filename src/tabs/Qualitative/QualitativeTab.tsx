@@ -269,3 +269,67 @@ export function QualitativeTab() {
     />
   )
 }
+
+// ─── Highlighted document renderer ───────────────────────────────────────────
+
+function HighlightedDoc({ doc, codes }: { doc: QualDocument; codes: QualCode[] }) {
+  const codeMap = Object.fromEntries(codes.map((c) => [c.id, c]))
+
+  // Build sorted, non-overlapping list of spans to highlight
+  const spans = [...doc.segments].sort((a, b) => a.startOffset - b.startOffset)
+  const parts: React.ReactNode[] = []
+  let cursor = 0
+
+  for (const seg of spans) {
+    if (seg.startOffset > cursor) {
+      parts.push(doc.content.slice(cursor, seg.startOffset))
+    }
+    const color = codeMap[seg.codeIds[0]]?.color ?? '#3B82F6'
+    parts.push(
+      <mark
+        key={seg.id}
+        title={codeMap[seg.codeIds[0]]?.name ?? ''}
+        style={{ backgroundColor: color + '33', borderBottom: `2px solid ${color}`, borderRadius: 2 }}
+      >
+        {doc.content.slice(seg.startOffset, seg.endOffset)}
+      </mark>
+    )
+    cursor = seg.endOffset
+  }
+  if (cursor < doc.content.length) {
+    parts.push(doc.content.slice(cursor))
+  }
+
+  // Re-split into paragraphs for rendering
+  const fullText = doc.content
+  return (
+    <>
+      {fullText.split('\n').map((line, i) => {
+        const lineStart = fullText.split('\n').slice(0, i).join('\n').length + (i > 0 ? 1 : 0)
+        const lineEnd = lineStart + line.length
+        // Render highlighted spans within this line
+        const lineSpans: React.ReactNode[] = []
+        let lc = lineStart
+        for (const seg of spans) {
+          if (seg.endOffset <= lineStart || seg.startOffset >= lineEnd) continue
+          const s = Math.max(seg.startOffset, lineStart)
+          const e = Math.min(seg.endOffset, lineEnd)
+          if (s > lc) lineSpans.push(fullText.slice(lc, s))
+          const color = codeMap[seg.codeIds[0]]?.color ?? '#3B82F6'
+          lineSpans.push(
+            <mark
+              key={seg.id}
+              title={codeMap[seg.codeIds[0]]?.name ?? ''}
+              style={{ backgroundColor: color + '33', borderBottom: `2px solid ${color}`, borderRadius: 2 }}
+            >
+              {fullText.slice(s, e)}
+            </mark>
+          )
+          lc = e
+        }
+        if (lc < lineEnd) lineSpans.push(fullText.slice(lc, lineEnd))
+        return <p key={i} className="mb-2">{lineSpans.length > 0 ? lineSpans : line || <br />}</p>
+      })}
+    </>
+  )
+}
