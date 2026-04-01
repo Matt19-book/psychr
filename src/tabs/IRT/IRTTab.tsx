@@ -54,6 +54,7 @@ export function IRTTab() {
   const [selectedModel, setSelectedModel] = useState<IRTModel>('rasch')
   const [selectedItems, setSelectedItems] = useState<string[]>([])
   const [results, setResults] = useState<Record<string, unknown> | null>(null)
+  const [itemError, setItemError] = useState<string | null>(null)
 
   const numericCols = (activeDataset?.columns ?? []).filter((c) => c.type === 'numeric')
 
