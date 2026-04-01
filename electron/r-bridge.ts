@@ -16,7 +16,7 @@
  */
 
 import { spawn } from 'child_process'
-import { writeFileSync, unlinkSync, mkdtempSync } from 'fs'
+import { writeFileSync, unlinkSync, mkdtempSync, existsSync } from 'fs'
 import { join } from 'path'
 import { tmpdir } from 'os'
 
