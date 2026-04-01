@@ -119,120 +119,104 @@ export function DataCleaningTab() {
 
   const handleImportFile = useCallback(async () => {
     setIsLoading(true)
+    setImportError(null)
     try {
-      let filePaths: string[] = []
-
-      // Try Electron file dialog first, fall back to browser input
-      if (typeof window !== 'undefined' && (window as any).psychr) {
-        const result = await (window as any).psychr.dialog.openFile()
-        if (result.canceled) return
-        filePaths = result.filePaths
-      } else {
-        // Browser fallback: use file input
-        fileInputRef.current?.click()
+      // ── Step 1: open native file dialog ──────────────────────────────────
+      const psychr = (window as any).psychr
+      if (!psychr) {
+        setImportError('File import requires the desktop app. The browser preview does not support file access.')
         return
       }
 
-      if (filePaths.length === 0) return
-      const path = filePaths[0]
-      const name = path.split(/[\\/]/).pop() || 'dataset'
+      const dialogResult = await psychr.dialog.openFile()
+      if (dialogResult.canceled || dialogResult.filePaths.length === 0) return
 
-      // Use R to read the file (supports CSV, XLSX, SAV, RDS, TSV)
-      const ext = name.split('.').pop()?.toLowerCase()
-      const safePath = path.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
-      const readCmd = ext === 'csv' || ext === 'tsv'
-        ? `df <- read.csv("${safePath}")`
-        : ext === 'xlsx' || ext === 'xls'
-        ? `library(readxl)\ndf <- as.data.frame(read_excel("${safePath}"))`
-        : ext === 'sav'
-        ? `library(haven)\ndf <- as.data.frame(read_sav("${safePath}"))`
-        : ext === 'rds'
-        ? `df <- readRDS("${safePath}")`
-        : `df <- read.csv("${safePath}")`
+      const filePath = dialogResult.filePaths[0]
+      const fileName = filePath.split(/[\\/]/).pop() || 'dataset'
+      const ext = fileName.split('.').pop()?.toLowerCase() ?? ''
 
-      // Build the inspect script — r_script label is computed in JS, never embedded
-      // in an R string (avoids double-quote escaping bugs)
-      const inspectScript = `
+      // ── Step 2: read / parse depending on file type ──────────────────────
+      let columns: DataColumn[] = []
+      let data: Record<string, unknown>[] = []
+      let readCmd = ''
+
+      if (ext === 'csv' || ext === 'tsv') {
+        // Read natively via Electron fs — no R dependency needed for CSV/TSV
+        const sep = ext === 'tsv' ? '\t' : ','
+        const fileResult = await psychr.fs.read(filePath)
+        if (!fileResult.success) {
+          setImportError(`Could not read file: ${fileResult.error}`)
+          return
+        }
+        const parsed = parseCSV(fileResult.content!, sep)
+        columns = inferColumns(parsed.headers, parsed.rows)
+        data = parsed.rows as Record<string, unknown>[]
+        readCmd = `df <- read.${ext === 'tsv' ? 'delim' : 'csv'}("${filePath.replace(/\\/g, '/')}")`
+
+      } else {
+        // For XLSX / SAV / RDS — use R
+        const safePath = filePath.replace(/\\/g, '/').replace(/'/g, "\\'")
+        readCmd = ext === 'xlsx' || ext === 'xls'
+          ? `library(readxl); df <- as.data.frame(read_excel('${safePath}'))`
+          : ext === 'sav'
+          ? `library(haven); df <- as.data.frame(read_sav('${safePath}'))`
+          : `df <- readRDS('${safePath}')`
+
+        const inspectScript = `
 library(jsonlite)
-suppressPackageStartupMessages({
-  ${readCmd}
-})
+suppressPackageStartupMessages({ ${readCmd} })
 
-# Convert haven/readxl labelled columns to plain types
 df <- as.data.frame(lapply(df, function(x) {
-  if (inherits(x, "haven_labelled") || inherits(x, "labelled")) {
-    return(as.character(x))
-  }
+  if (inherits(x, "haven_labelled") || inherits(x, "labelled")) return(as.character(x))
   if (is.factor(x)) return(as.character(x))
   x
 }), stringsAsFactors = FALSE)
 
-n_rows <- nrow(df)
-
-col_info <- lapply(names(df), function(col_name) {
-  col <- df[[col_name]]
-  col_type <- if (is.numeric(col)) "numeric"
-              else if (is.logical(col)) "logical"
-              else if (inherits(col, "Date") || inherits(col, "POSIXct")) "date"
-              else "character"
-
-  result <- list(
-    name       = col_name,
-    type       = col_type,
-    missingCount = sum(is.na(col)),
-    uniqueCount  = length(unique(col[!is.na(col)]))
-  )
-  if (col_type == "numeric") {
-    result[["min"]]  <- round(min(col, na.rm = TRUE), 4)
-    result[["max"]]  <- round(max(col, na.rm = TRUE), 4)
-    result[["mean"]] <- round(mean(col, na.rm = TRUE), 4)
-    result[["sd"]]   <- round(sd(col,  na.rm = TRUE), 4)
+col_info <- lapply(names(df), function(nm) {
+  col <- df[[nm]]
+  ct <- if (is.numeric(col)) "numeric" else if (is.logical(col)) "logical" else "character"
+  r <- list(name=nm, type=ct, missingCount=sum(is.na(col)), uniqueCount=length(unique(na.omit(col))))
+  if (ct=="numeric") {
+    r[["min"]]<-round(min(col,na.rm=T),4); r[["max"]]<-round(max(col,na.rm=T),4)
+    r[["mean"]]<-round(mean(col,na.rm=T),4); r[["sd"]]<-round(sd(col,na.rm=T),4)
   }
-  result
+  r
 })
-
-preview_rows <- head(df, 500)
-preview_list <- lapply(seq_len(nrow(preview_rows)), function(i) {
-  row <- as.list(preview_rows[i, ])
-  lapply(row, function(v) if (length(v) == 1 && is.na(v)) NULL else v)
+preview <- lapply(seq_len(min(nrow(df),500)), function(i) {
+  row <- as.list(df[i,])
+  lapply(row, function(v) if (length(v)==1 && is.na(v)) NULL else v)
 })
-
-cat(toJSON(list(
-  success = TRUE,
-  data = list(
-    rows    = n_rows,
-    columns = col_info,
-    preview = preview_list
-  )
-), auto_unbox = TRUE, null = "null"))
+cat(toJSON(list(success=TRUE,data=list(rows=nrow(df),columns=col_info,preview=preview)),
+  auto_unbox=TRUE, null="null"))
 `
-
-      // Run the R script
-      const rResult = await (window as any).psychr?.r?.run(inspectScript)
-
-      if (!rResult) {
-        alert('Import failed: R is not available. Is R installed on your machine?\nDownload from https://cran.r-project.org')
-        return
+        const rResult = await psychr.r?.run(inspectScript)
+        if (!rResult) {
+          setImportError('R is not available. Install R from https://cran.r-project.org to open XLSX / SAV / RDS files. CSV files work without R.')
+          return
+        }
+        if (!rResult.success) {
+          setImportError(`R error: ${rResult.error || rResult.stderr || 'Unknown error'}`)
+          return
+        }
+        const d = (rResult.data ?? rResult) as Record<string, unknown>
+        columns = (d.columns as DataColumn[]) ?? []
+        data = (d.preview as Record<string, unknown>[]) ?? []
       }
-      if (!rResult.success) {
-        alert(`Import failed:\n${rResult.error || rResult.stderr || 'Unknown R error'}`)
-        return
-      }
 
-      const rData = (rResult.data ?? rResult) as Record<string, unknown>
+      // ── Step 3: store dataset ─────────────────────────────────────────────
       const dataset: Dataset = {
         id: `dataset_${Date.now()}`,
-        name,
-        path,
-        rows: (rData.rows as number) ?? 0,
-        columns: (rData.columns as DataColumn[]) ?? [],
-        data: (rData.preview as Record<string, unknown>[]) ?? [],
+        name: fileName,
+        path: filePath,
+        rows: data.length,
+        columns,
+        data,
         isDuckDB: false,
         importedAt: new Date(),
       }
-
       addDataset(dataset)
       appendToScript(`# Import dataset\n${readCmd}\n`)
+
     } finally {
       setIsLoading(false)
     }
