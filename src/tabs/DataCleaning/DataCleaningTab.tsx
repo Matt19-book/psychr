@@ -322,7 +322,7 @@ cat(toJSON(list(success=TRUE,data=list(rows=nrow(df),columns=col_info,preview=pr
               )}
 
               {/* Import button */}
-              <div className="p-3 border-t border-gray-200 shrink-0">
+              <div className="p-3 border-t border-gray-200 shrink-0 space-y-2">
                 <button
                   onClick={handleImportFile}
                   disabled={isLoading}
@@ -330,12 +330,16 @@ cat(toJSON(list(success=TRUE,data=list(rows=nrow(df),columns=col_info,preview=pr
                 >
                   {isLoading ? 'Importing...' : '+ Import Dataset'}
                 </button>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  className="hidden"
-                  accept=".csv,.xlsx,.xls,.sav,.rds,.tsv"
-                />
+                {importError && (
+                  <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded p-2 leading-relaxed">
+                    {importError}
+                    <button
+                      onClick={() => setImportError(null)}
+                      className="ml-1 underline text-red-500"
+                    >dismiss</button>
+                  </div>
+                )}
+                <p className="text-xs text-gray-400 text-center">CSV · TSV · XLSX · SAV · RDS</p>
               </div>
             </>
           )}
