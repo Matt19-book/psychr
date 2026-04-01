@@ -239,9 +239,6 @@ cat(toJSON(list(
                   >
                     <option value="">Select variable...</option>
                     {numericCols.map((c) => <option key={c.name} value={c.name}>{c.name}</option>)}
-                    {numericCols.length === 0 && (
-                      <option value="anxiety" selected>anxiety (demo)</option>
-                    )}
                   </select>
                 </div>
                 <div>
