@@ -138,7 +138,6 @@ cat(toJSON(list(
       const mu = parseFloat(muValue) || 0
       rScript = `
 library(jsonlite)
-${dataSetup}
 
 dep <- "${depVar}"
 mu <- ${mu}
