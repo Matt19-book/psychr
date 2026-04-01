@@ -7,7 +7,7 @@
 
 import { useState, useRef } from 'react'
 import { WorkspaceLayout, PanelHeader } from '../../components/layout/WorkspaceLayout'
-import { usePsychrStore, QualCode, QualDocument } from '../../store'
+import { usePsychrStore, QualCode, QualDocument, QualSegment } from '../../store'
 
 const CODE_COLORS = [
   '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6',
