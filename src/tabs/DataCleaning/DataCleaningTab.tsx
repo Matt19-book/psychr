@@ -43,6 +43,60 @@ const TYPE_COLORS: Record<string, string> = {
   logical: 'bg-gray-100 text-gray-700',
 }
 
+// ─── Simple JS CSV parser (no R required) ────────────────────────────────────
+
+function parseCSV(text: string, sep = ','): { headers: string[]; rows: Record<string, string>[] } {
+  const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').filter(Boolean)
+  if (lines.length === 0) return { headers: [], rows: [] }
+
+  const parseLine = (line: string): string[] => {
+    const cells: string[] = []
+    let cur = ''
+    let inQuotes = false
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i]
+      if (ch === '"') {
+        if (inQuotes && line[i + 1] === '"') { cur += '"'; i++ }
+        else inQuotes = !inQuotes
+      } else if (ch === sep && !inQuotes) {
+        cells.push(cur); cur = ''
+      } else {
+        cur += ch
+      }
+    }
+    cells.push(cur)
+    return cells
+  }
+
+  const headers = parseLine(lines[0])
+  const rows = lines.slice(1).map((line) => {
+    const vals = parseLine(line)
+    const row: Record<string, string> = {}
+    headers.forEach((h, i) => { row[h] = vals[i] ?? '' })
+    return row
+  })
+  return { headers, rows }
+}
+
+function inferColumns(headers: string[], rows: Record<string, string>[]): DataColumn[] {
+  return headers.map((name) => {
+    const vals = rows.map((r) => r[name]).filter((v) => v !== '' && v !== null && v !== undefined)
+    const missingCount = rows.length - vals.length
+    const uniqueCount = new Set(vals).size
+    const nums = vals.map(Number).filter((n) => !isNaN(n))
+    const isNumeric = vals.length > 0 && nums.length === vals.length
+    const col: DataColumn = { name, type: isNumeric ? 'numeric' : 'character', missingCount, uniqueCount }
+    if (isNumeric && nums.length > 0) {
+      col.min = Math.min(...nums)
+      col.max = Math.max(...nums)
+      col.mean = nums.reduce((a, b) => a + b, 0) / nums.length
+    }
+    return col
+  })
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 export function DataCleaningTab() {
   const addDataset = usePsychrStore((s) => s.addDataset)
   const datasets = usePsychrStore((s) => s.datasets)
@@ -52,6 +106,7 @@ export function DataCleaningTab() {
   const { run: runR } = useRBridge()
 
   const [isLoading, setIsLoading] = useState(false)
+  const [importError, setImportError] = useState<string | null>(null)
   const [filterText, setFilterText] = useState('')
   const [selectedCol, setSelectedCol] = useState<string | null>(null)
   const [leftTab, setLeftTab] = useState<'variables' | 'wrangle'>('variables')
