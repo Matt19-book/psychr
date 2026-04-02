@@ -69,7 +69,7 @@ result_table <- lapply(rownames(desc_df), function(var) {
 
 r_script_text <- paste0(
   "library(psych)\\n",
-  "desc <- describe(df[, c(", paste0('"', vars, '"', collapse = ", "), ")])\\n",
+  "desc <- describe(df[, c(", paste0('"', selected_vars, '"', collapse = ", "), ")])\\n",
   "print(desc)"
 )
 
