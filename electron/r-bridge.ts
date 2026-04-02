@@ -129,8 +129,12 @@ tryCatch({
         }
 
         try {
-          // Extract last JSON object from stdout (R may print warnings before it)
-          const jsonMatch = stdout.match(/\{[\s\S]*\}/)
+          // Extract outermost JSON object from stdout (R may print warnings/messages before it)
+          const firstBrace = stdout.indexOf('{')
+          const lastBrace = stdout.lastIndexOf('}')
+          const jsonMatch = firstBrace !== -1 && lastBrace > firstBrace
+            ? [stdout.slice(firstBrace, lastBrace + 1)]
+            : null
           if (!jsonMatch) {
             resolve({ success: false, error: 'No JSON output from R', stderr })
             return

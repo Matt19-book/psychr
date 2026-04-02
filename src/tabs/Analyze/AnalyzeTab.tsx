@@ -81,7 +81,7 @@ const ANALYSIS_CATEGORIES: AnalysisCategory[] = [
     icon: '📈',
     items: [
       { id: 'pearson', label: 'Pearson Correlation', description: 'Linear relationship — r, CI, significance', phase: 'available' },
-      { id: 'pearson', label: 'Spearman / Kendall', description: 'Rank-based correlations', phase: 'available' },
+      { id: 'spearman', label: 'Spearman / Kendall', description: 'Rank-based correlations', phase: 'available' },
       { id: 'correlation-matrix', label: 'Correlation Matrix', description: 'All pairwise correlations with significance', phase: 'available' },
       { id: 'partial-cor', label: 'Partial Correlation', description: 'Controlling for a third variable', phase: 'coming-soon' },
     ],
@@ -92,7 +92,7 @@ const ANALYSIS_CATEGORIES: AnalysisCategory[] = [
     icon: '📉',
     items: [
       { id: 'linear-regression', label: 'Linear Regression', description: 'Continuous outcome — R², β coefficients', phase: 'available' },
-      { id: 'linear-regression', label: 'Multiple Regression', description: 'Multiple predictors — same dialog', phase: 'available' },
+      { id: 'multiple-regression', label: 'Multiple Regression', description: 'Multiple predictors — same dialog', phase: 'available' },
       { id: 'logistic-regression', label: 'Logistic Regression', description: 'Binary outcome prediction', phase: 'coming-soon' },
       { id: 'hierarchical-regression', label: 'Hierarchical Regression', description: 'Block-entry model comparison', phase: 'coming-soon' },
       { id: 'moderation', label: 'Moderation', description: 'Interaction effects', phase: 'coming-soon' },
@@ -270,7 +270,7 @@ export function AnalyzeTab() {
       {activeDialog === 'one-way-anova' && (
         <ANOVADialog onClose={() => setActiveDialog(null)} onRun={run} />
       )}
-      {(activeDialog === 'pearson' || activeDialog === 'correlation-matrix') && (
+      {(activeDialog === 'pearson' || activeDialog === 'spearman' || activeDialog === 'correlation-matrix') && (
         <CorrelationDialog onClose={() => setActiveDialog(null)} onRun={run} />
       )}
       {(activeDialog === 'linear-regression' || activeDialog === 'multiple-regression') && (

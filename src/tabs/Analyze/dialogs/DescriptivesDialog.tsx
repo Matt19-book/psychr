@@ -40,7 +40,10 @@ export function DescriptivesDialog({ onClose, onRun }: Props) {
 
   const handleRun = async () => {
     const vars = selectedVars.length > 0 ? selectedVars : numericCols.map((c) => c.name)
-    if (vars.length === 0) return
+    if (vars.length === 0) {
+      alert('No numeric variables found. Make sure your dataset has numeric columns (check the Data tab).')
+      return
+    }
 
     const varList = vars.map((v) => `"${v}"`).join(', ')
     const rScript = `

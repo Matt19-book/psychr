@@ -38,7 +38,7 @@ export function ANOVADialog({ onClose, onRun }: Props) {
     // df is injected by useRBridge from the active dataset
     const postHocScript = postHoc === 'tukey'
       ? `posthoc <- TukeyHSD(model)
-posthoc_table <- as.data.frame(posthoc[[grp]])
+posthoc_table <- as.data.frame(posthoc[[1]])
 posthoc_table$Comparison <- rownames(posthoc_table)
 posthoc_rows <- lapply(seq_len(nrow(posthoc_table)), function(i) {
   list(
@@ -115,7 +115,7 @@ r_script_text <- paste0(
   "# One-Way ANOVA\\n",
   "model <- aov(", dep, " ~ ", grp, ", data = df)\\n",
   "summary(model)\\n",
-  if ("${postHoc}" != "none") paste0("TukeyHSD(model)\\n") else ""
+  if ("${postHoc}" == "tukey") "TukeyHSD(model)\\n" else if ("${postHoc}" == "bonferroni") paste0("pairwise.t.test(df[[", dep, "]], df[[", grp, "]], p.adjust.method = 'bonferroni')\\n") else ""
 )
 
 cat(toJSON(list(

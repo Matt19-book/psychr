@@ -76,10 +76,10 @@ g2 <- df[[dep]][df[[grp]] == groups[2]]
 
 result <- wilcox.test(g1, g2, alternative = "${alternative}", correct = TRUE)
 
-# Effect size r = Z / sqrt(N)
-Z <- qnorm(result$p.value / 2)
+# Effect size r (rank-biserial correlation approximation)
 n_total <- sum(!is.na(c(g1, g2)))
-r_effect <- abs(Z) / sqrt(n_total)
+n1 <- sum(!is.na(g1)); n2 <- sum(!is.na(g2))
+r_effect <- abs(result$statistic - (n1 * n2 / 2)) / (n1 * n2 / 2)
 
 r_script_text <- paste0(
   "# Mann-Whitney U\\n",
@@ -121,8 +121,8 @@ x2 <- df[[v2]][complete_idx]
 result <- wilcox.test(x1, x2, paired = TRUE, alternative = "${alternative}", correct = TRUE)
 
 diff <- x1 - x2
-Z <- qnorm(result$p.value / 2)
-r_effect <- abs(Z) / sqrt(length(diff))
+n_pairs <- sum(!is.na(diff))
+r_effect <- abs(result$statistic - (n_pairs * (n_pairs + 1) / 4)) / (n_pairs * (n_pairs + 1) / 4)
 
 r_script_text <- paste0(
   "# Wilcoxon Signed-Rank\\n",

@@ -82,7 +82,7 @@ item_rows <- lapply(rownames(item_stats), function(item) {
 
 r_script_text <- paste0(
   "library(psych)\\n",
-  "scale_data <- df[, c(", paste0('"', items, '"', collapse = ", "), ")]\\n",
+  "scale_data <- df[, c(", paste0('"', item_cols, '"', collapse = ", "), ")]\\n",
   "alpha(scale_data)\\n"
 )
 
@@ -92,9 +92,9 @@ cat(toJSON(list(
   data = list(
     table = item_rows,
     summary = list(
-      alpha = round(a$raw_alpha, 3),
-      std_alpha = round(a$std.alpha, 3),
-      mean_r = round(a$average_r, 3),
+      alpha = if (!is.null(a$raw_alpha)) round(a$raw_alpha, 3) else NA,
+      std_alpha = if (!is.null(a$std.alpha)) round(a$std.alpha, 3) else NA,
+      mean_r = if (!is.null(a$average_r)) round(a$average_r, 3) else NA,
       n_items = ncol(scale_data),
       n_obs = nrow(scale_data),
       omega_h = omega_h,
