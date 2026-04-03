@@ -11,7 +11,7 @@ import { useState } from 'react'
 import { WorkspaceLayout, PanelHeader } from '../../components/layout/WorkspaceLayout'
 import { usePsychrStore } from '../../store'
 import { useRBridge } from '../../hooks/useRBridge'
-import { RConsole } from '../../components/shared/RConsole'
+import { RWorkspace } from '../../components/shared/RWorkspace'
 import { DescriptivesDialog } from './dialogs/DescriptivesDialog'
 import { TTestDialog } from './dialogs/TTestDialog'
 import { ANOVADialog } from './dialogs/ANOVADialog'
@@ -246,8 +246,11 @@ export function AnalyzeTab() {
             </div>
           </div>
         }
-        rightWidth="320px"
-        right={<RConsole />}
+        rightWidth="520px"
+        rightResizable
+        rightCollapsible
+        rightTabLabel="R Workspace"
+        right={<RWorkspace />}
       />
 
       {/* Analysis Dialogs */}

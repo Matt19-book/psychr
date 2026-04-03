@@ -40,10 +40,10 @@ contextBridge.exposeInMainWorld('psychr', {
     saveFile: (options?: object): Promise<{ canceled: boolean; filePath?: string }> => ipcRenderer.invoke('dialog:saveFile', options),
   },
 
-  // File system (direct read — bypasses R for CSV/TSV)
+  // File system (narrow import-only read path for CSV/TSV)
   fs: {
-    read: (filePath: string): Promise<{ success: boolean; content?: string; error?: string }> =>
-      ipcRenderer.invoke('file:read', filePath),
+    readTextImport: (filePath: string): Promise<{ success: boolean; content?: string; error?: string }> =>
+      ipcRenderer.invoke('file:readTextImport', filePath),
   },
 
   // Shell utilities

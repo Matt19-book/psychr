@@ -25,8 +25,8 @@ Every click you make generates valid R syntax — the full session script can be
 ## Features
 
 ### Data Management
-- **Import** CSV, Excel (.xlsx), SPSS (.sav), and R (.rds) files
-- **Data Grid** — spreadsheet-style view with column type indicators
+- **Import** CSV, TSV, Excel (.xlsx/.xls), SPSS (.sav), and R (.rds) files
+- **Data Grid** — spreadsheet-style view with column metadata and large-file previewing
 - **Data Wrangling** — filter, mutate, rename, recode, pivot, sort, and reshape using tidyverse/dplyr operations
 - **Live R Console** — bidirectional: point-and-click generates code, or write code to manipulate data
 
@@ -55,7 +55,7 @@ Every click you make generates valid R syntax — the full session script can be
 - Searchable reference library with one-click export
 
 ### Quarto Reporting
-- Split markdown editor/preview
+- Split markdown editor/preview (lightweight preview, full Quarto rendering still planned)
 - Insert analysis results and citations directly into reports
 
 ---
@@ -98,7 +98,7 @@ install.packages(c(
 
 ```bash
 # Clone the repository
-git clone https://github.com/Matt19-book/psychr.git
+git clone https://github.com/Psych-Point/psychr.git
 cd psychr
 
 # Install Node dependencies
@@ -149,8 +149,8 @@ Every R script outputs **only JSON** (via `jsonlite::toJSON`), making results fu
 | Code editor | Monaco Editor |
 | Data grid | AG Grid |
 | R integration | Child process (`Rscript`) |
-| CSV parsing | PapaParse |
-| Excel parsing | SheetJS |
+| CSV/TSV import | Native Electron file read + in-app parser |
+| Excel parsing | readxl via R |
 
 ---
 

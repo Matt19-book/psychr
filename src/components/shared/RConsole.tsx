@@ -11,7 +11,7 @@ import { useState, useCallback } from 'react'
 import Editor, { loader } from '@monaco-editor/react'
 import * as monaco from 'monaco-editor'
 import { usePsychrStore, DataColumn } from '../../store'
-import { buildDataInjection } from '../../hooks/useRBridge'
+import { buildDataInjection, buildRDataFrameResultScript, quoteRAccess, quoteRName, quoteRString } from '../../utils/r-script'
 
 // Use locally installed monaco-editor instead of CDN — works offline and in Electron
 loader.config({ monaco })
@@ -19,15 +19,17 @@ loader.config({ monaco })
 function buildStarterCode(columns: { name: string; type: string }[] = []): string {
   const numCols = columns.filter((c) => c.type === 'numeric').map((c) => c.name)
   const catCols = columns.filter((c) => c.type === 'factor' || c.type === 'character').map((c) => c.name)
+  const firstNumeric = numCols[0]
+  const firstCategorical = catCols[0]
 
-  const filterExample = numCols.length > 0
-    ? `filter(${numCols[0]} > 0)`
-    : catCols.length > 0
-      ? `filter(!is.na(${catCols[0]}))`
+  const filterExample = firstNumeric
+    ? `filter(${quoteRAccess(firstNumeric, '.data')} > 0)`
+    : firstCategorical
+      ? `filter(!is.na(${quoteRAccess(firstCategorical, '.data')}))`
       : `filter(!is.na(.data[[names(df)[1]]]))`
 
-  const mutateExample = numCols.length > 0
-    ? `mutate(${numCols[0]}_z = scale(${numCols[0]})[,1])`
+  const mutateExample = firstNumeric
+    ? `mutate(${quoteRName(`${firstNumeric}_z`)} = scale(${quoteRAccess(firstNumeric, '.data')})[,1])`
     : `mutate(row_id = row_number())`
 
   const colComment = columns.length > 0
@@ -88,50 +90,15 @@ ${currentCode}
 
 # Capture the last expression if it's a data frame and update the dataset
 if (exists("df") && is.data.frame(df)) {
-  n_rows <- nrow(df)
-  n_cols <- ncol(df)
-
-  col_info <- lapply(names(df), function(col_name) {
-    col <- df[[col_name]]
-    col_type <- if (is.numeric(col)) "numeric"
-                else if (is.factor(col)) "factor"
-                else if (is.logical(col)) "logical"
-                else "character"
-    result <- list(
-      name         = col_name,
-      type         = col_type,
-      missingCount = sum(is.na(col)),
-      uniqueCount  = length(unique(col[!is.na(col)]))
-    )
-    if (col_type == "numeric") {
-      result$min  <- round(min(col, na.rm = TRUE), 4)
-      result$max  <- round(max(col, na.rm = TRUE), 4)
-      result$mean <- round(mean(col, na.rm = TRUE), 4)
-      result$sd   <- round(sd(col, na.rm = TRUE), 4)
-    }
-    result
-  })
-
-  preview <- lapply(seq_len(min(nrow(df), 200)), function(i) {
-    row <- as.list(df[i, , drop = FALSE])
-    lapply(row, function(v) if (length(v) == 0 || (length(v) == 1 && is.na(v))) NULL else v)
-  })
-
-  cat(toJSON(list(
-    success  = TRUE,
-    r_script = ${JSON.stringify(currentCode)},
-    has_df   = TRUE,
-    data = list(
-      rows    = n_rows,
-      columns = col_info,
-      preview = preview,
-      message = paste0("df updated: ", n_rows, " rows × ", n_cols, " columns")
-    )
-  ), auto_unbox = TRUE, null = "null"))
+  ${buildRDataFrameResultScript({
+    rScript: currentCode,
+    successMessage: 'Code ran successfully and updated df.',
+    includeHasDf: true,
+  })}
 } else {
   cat(toJSON(list(
     success  = TRUE,
-    r_script = ${JSON.stringify(currentCode)},
+    r_script = ${quoteRString(currentCode)},
     has_df   = FALSE,
     data     = list(message = "Code ran successfully (no df returned)")
   ), auto_unbox = TRUE))
@@ -158,11 +125,12 @@ if (exists("df") && is.data.frame(df)) {
         updateDataset(activeDataset.id, {
           rows: rData.rows as number,
           columns: rData.columns as DataColumn[],
-          data: rData.preview as Record<string, unknown>[],
+          data: rData.full_data as Record<string, unknown>[],
+          previewData: rData.preview as Record<string, unknown>[],
         })
       }
 
-      setOutput((rData.message as string) || (result.has_df ? 'Dataset updated.' : 'Done.'))
+      setOutput((rData.message as string) || (rData.dimensions as string) || (result.has_df ? 'Dataset updated.' : 'Done.'))
       appendToScript(currentCode)
     } catch (err) {
       setRunError(err instanceof Error ? err.message : 'Failed to run R')

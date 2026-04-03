@@ -9,7 +9,7 @@ import { useState } from 'react'
 import { WorkspaceLayout, PanelHeader } from '../../components/layout/WorkspaceLayout'
 import { usePsychrStore } from '../../store'
 import { useRBridge } from '../../hooks/useRBridge'
-import { RConsole } from '../../components/shared/RConsole'
+import { RWorkspace } from '../../components/shared/RWorkspace'
 
 type IRTModel = 'rasch' | '2pl' | '3pl' | 'grm' | 'gpcm'
 
@@ -249,8 +249,11 @@ cat(toJSON(list(
           </div>
         </div>
       }
-      rightWidth="320px"
-      right={<RConsole />}
+      rightWidth="520px"
+      rightResizable
+      rightCollapsible
+      rightTabLabel="R Workspace"
+      right={<RWorkspace />}
     />
   )
 }

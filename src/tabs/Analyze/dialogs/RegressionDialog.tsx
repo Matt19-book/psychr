@@ -8,6 +8,7 @@
 import { useMemo, useState } from 'react'
 import { usePsychrStore } from '../../../store'
 import { DialogShell, DialogFooter, LabeledSelect, NoDatasetWarning } from '../../../components/shared/DialogShell'
+import { quoteRString } from '../../../utils/r-script'
 
 interface Props {
   onClose: () => void
@@ -42,21 +43,20 @@ export function RegressionDialog({ onClose, onRun }: Props) {
 
     const dep = outcome
     const preds = predictors
-    const predList = preds.map((v) => `"${v}"`).join(', ')
+    const predList = preds.map(quoteRString).join(', ')
 
     const rScript = `
 library(jsonlite)
 
-dep   <- "${dep}"
+dep   <- ${quoteRString(dep)}
 preds <- c(${predList})
 
 # Subset to complete cases for selected variables
 df_sub <- df[, c(dep, intersect(preds, names(df))), drop = FALSE]
 df_sub <- df_sub[complete.cases(df_sub), ]
 
-# Fit model
-formula_str <- paste(dep, "~", paste(preds, collapse = " + "))
-model <- lm(as.formula(formula_str), data = df_sub)
+# Fit model with safe quoting for non-syntactic column names
+model <- lm(reformulate(preds, response = dep), data = df_sub)
 s     <- summary(model)
 
 # Model fit
@@ -101,7 +101,7 @@ model_fit <- list(
 
 r_script_text <- paste0(
   "# Linear Regression\\n",
-  "model <- lm(", dep, " ~ ", paste(preds, collapse = " + "), ", data = df)\\n",
+  "model <- lm(reformulate(c(", paste0('"', preds, '"', collapse = ", "), "), response = ", dQuote(dep), "), data = df)\\n",
   "summary(model)\\n"
 )
 

@@ -5,11 +5,12 @@
  * image is streamed back and displayed alongside the generated ggplot code.
  */
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { WorkspaceLayout, PanelHeader } from '../../components/layout/WorkspaceLayout'
 import { usePsychrStore } from '../../store'
 import { useRBridge } from '../../hooks/useRBridge'
-import { RConsole } from '../../components/shared/RConsole'
+import { RWorkspace } from '../../components/shared/RWorkspace'
+import { quoteRName, quoteRString } from '../../utils/r-script'
 
 type ChartType = 'histogram' | 'scatter' | 'boxplot' | 'bar' | 'violin' | 'density' | 'line'
 
@@ -65,15 +66,23 @@ export function VisualizationTab() {
   const [plotImage, setPlotImage] = useState<string | null>(null)
   const [ggplotCode, setGgplotCode] = useState<string>('')
 
+  useEffect(() => {
+    setConfig((current) => ({
+      ...current,
+      x: current.x || numCols[0]?.name || allCols[0]?.name || '',
+      y: current.y || numCols[1]?.name || '',
+    }))
+  }, [allCols, numCols])
+
   const set = (key: keyof ChartConfig, val: string | boolean) =>
     setConfig((c) => ({ ...c, [key]: val }))
 
   const buildGgplotScript = () => {
     const aes = [
-      config.x && `x = ${config.x}`,
-      config.y && ['scatter', 'bar', 'line', 'boxplot', 'violin'].includes(config.type) && `y = ${config.y}`,
-      config.color && `color = ${config.color}`,
-      config.fill && `fill = ${config.fill}`,
+      config.x && `x = ${quoteRName(config.x)}`,
+      config.y && ['scatter', 'bar', 'line', 'boxplot', 'violin'].includes(config.type) && `y = ${quoteRName(config.y)}`,
+      config.color && `color = ${quoteRName(config.color)}`,
+      config.fill && `fill = ${quoteRName(config.fill)}`,
     ].filter(Boolean).join(', ')
 
     const geom = {
@@ -90,11 +99,11 @@ export function VisualizationTab() {
       ? '\n  geom_smooth(method = "lm", se = TRUE, color = "red")'
       : ''
 
-    const facet = config.facet ? `\n  facet_wrap(~ ${config.facet})` : ''
+    const facet = config.facet ? `\n  facet_wrap(vars(${quoteRName(config.facet)}))` : ''
     const labs_parts = [
-      config.title && `title = "${config.title}"`,
-      config.xLabel && `x = "${config.xLabel}"`,
-      config.yLabel && `y = "${config.yLabel}"`,
+      config.title && `title = ${quoteRString(config.title)}`,
+      config.xLabel && `x = ${quoteRString(config.xLabel)}`,
+      config.yLabel && `y = ${quoteRString(config.yLabel)}`,
     ].filter(Boolean).join(', ')
     const labs = labs_parts ? `\n  labs(${labs_parts})` : ''
 
@@ -112,6 +121,7 @@ export function VisualizationTab() {
     const script = `
 library(ggplot2)
 library(jsonlite)
+library(base64enc)
 
 p <- ${ggcode}
 
@@ -124,20 +134,17 @@ file.remove(tmp)
 
 cat(toJSON(list(
   success = TRUE,
-  r_script = "${ggcode.replace(/"/g, '\\"').replace(/\n/g, '\\n')}",
+  r_script = ${quoteRString(ggcode)},
   data = list(
     image_b64 = img_b64,
-    plot_type = "${config.type}"
+    plot_type = ${quoteRString(config.type)}
   )
 ), auto_unbox = TRUE))
 `
 
     const result = await run(script, `ggplot: ${config.type}`)
-    if (result?.data) {
-      const data = result.data as Record<string, unknown>
-      if (data.image_b64) {
-        setPlotImage(`data:image/png;base64,${data.image_b64}`)
-      }
+    if (result?.image_b64) {
+      setPlotImage(`data:image/png;base64,${result.image_b64}`)
     }
   }
 
@@ -297,8 +304,11 @@ cat(toJSON(list(
           )}
         </div>
       }
-      rightWidth="320px"
-      right={<RConsole />}
+      rightWidth="520px"
+      rightResizable
+      rightCollapsible
+      rightTabLabel="R Workspace"
+      right={<RWorkspace />}
     />
   )
 }

@@ -44,8 +44,8 @@ declare global {
         saveFile: (options?: object) => Promise<SaveFileResult>
       }
       fs: {
-        /** Read a file from disk and return its text content (UTF-8). */
-        read: (filePath: string) => Promise<{ success: boolean; content?: string; error?: string }>
+        /** Read a CSV/TSV import file from disk and return its text content (UTF-8). */
+        readTextImport: (filePath: string) => Promise<{ success: boolean; content?: string; error?: string }>
       }
       shell: {
         /** Open a URL in the system default browser. */

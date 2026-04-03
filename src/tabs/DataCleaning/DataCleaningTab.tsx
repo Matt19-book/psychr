@@ -7,12 +7,19 @@
  * Right: R script preview
  */
 
-import { useCallback, useRef, useState } from 'react'
-import { WorkspaceLayout, PanelHeader } from '../../components/layout/WorkspaceLayout'
+import { useCallback, useState } from 'react'
+import { WorkspaceLayout } from '../../components/layout/WorkspaceLayout'
 import { usePsychrStore, Dataset, DataColumn } from '../../store'
-import { RConsole } from '../../components/shared/RConsole'
+import { RWorkspace } from '../../components/shared/RWorkspace'
 import { WranglingPanel } from './WranglingPanel'
 import { useRBridge } from '../../hooks/useRBridge'
+import {
+  buildImportCommand,
+  buildImportScript,
+  buildRDataFrameResultScript,
+  createDatasetObjectName,
+  DEFAULT_GRID_PREVIEW_ROWS,
+} from '../../utils/r-script'
 
 // Sample dataset for demo when no file is loaded
 const SAMPLE_DATA = [
@@ -101,8 +108,8 @@ export function DataCleaningTab() {
   const addDataset = usePsychrStore((s) => s.addDataset)
   const datasets = usePsychrStore((s) => s.datasets)
   const activeDataset = usePsychrStore((s) => s.activeDataset)
-  const setActiveDataset = usePsychrStore((s) => s.setActiveDataset)
-  const appendToScript = usePsychrStore((s) => s.appendToScript)
+  const setSessionScript = usePsychrStore((s) => s.setSessionScript)
+  const sessionScript = usePsychrStore((s) => s.sessionScript)
   useRBridge() // R bridge initialised here for data import operations
 
   const [isLoading, setIsLoading] = useState(false)
@@ -110,7 +117,6 @@ export function DataCleaningTab() {
   const [filterText, setFilterText] = useState('')
   const [selectedCol, setSelectedCol] = useState<string | null>(null)
   const [leftTab, setLeftTab] = useState<'variables' | 'wrangle'>('variables')
-  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Use sample data if no dataset loaded
   const displayData = activeDataset?.data ?? SAMPLE_DATA
@@ -134,16 +140,26 @@ export function DataCleaningTab() {
       const filePath = dialogResult.filePaths[0]
       const fileName = filePath.split(/[\\/]/).pop() || 'dataset'
       const ext = fileName.split('.').pop()?.toLowerCase() ?? ''
+      const supportedTextExts = new Set(['csv', 'tsv'])
+      const supportedRExts = new Set(['xlsx', 'xls', 'sav', 'rds'])
+
+      if (!supportedTextExts.has(ext) && !supportedRExts.has(ext)) {
+        setImportError(`Unsupported file type ".${ext || 'unknown'}". Import CSV, TSV, XLSX, XLS, SAV, or RDS files.`)
+        return
+      }
 
       // ── Step 2: read / parse depending on file type ──────────────────────
       let columns: DataColumn[] = []
       let data: Record<string, unknown>[] = []
+      let previewData: Record<string, unknown>[] = []
+      let rowCount = 0
       let readCmd = ''
+      const objectName = createDatasetObjectName(datasets.map((dataset) => dataset.objectName))
 
-      if (ext === 'csv' || ext === 'tsv') {
+      if (supportedTextExts.has(ext)) {
         // Read natively via Electron fs — no R dependency needed for CSV/TSV
         const sep = ext === 'tsv' ? '\t' : ','
-        const fileResult = await psychr.fs.read(filePath)
+        const fileResult = await psychr.fs.readTextImport(filePath)
         if (!fileResult.success) {
           setImportError(`Could not read file: ${fileResult.error}`)
           return
@@ -151,43 +167,32 @@ export function DataCleaningTab() {
         const parsed = parseCSV(fileResult.content!, sep)
         columns = inferColumns(parsed.headers, parsed.rows)
         data = parsed.rows as Record<string, unknown>[]
-        readCmd = `df <- read.${ext === 'tsv' ? 'delim' : 'csv'}("${filePath.replace(/\\/g, '/')}")`
+        previewData = data.slice(0, DEFAULT_GRID_PREVIEW_ROWS)
+        rowCount = data.length
+        readCmd = buildImportCommand(ext, filePath, objectName)
 
       } else {
         // For XLSX / SAV / RDS — use R
-        const safePath = filePath.replace(/\\/g, '/').replace(/'/g, "\\'")
-        readCmd = ext === 'xlsx' || ext === 'xls'
-          ? `library(readxl); df <- as.data.frame(read_excel('${safePath}'))`
-          : ext === 'sav'
-          ? `library(haven); df <- as.data.frame(read_sav('${safePath}'))`
-          : `df <- readRDS('${safePath}')`
+        const safePath = filePath.replace(/\\/g, '/')
+        readCmd = buildImportCommand(ext, safePath, objectName)
 
         const inspectScript = `
 library(jsonlite)
 suppressPackageStartupMessages({ ${readCmd} })
 
+df <- ${objectName}
 df <- as.data.frame(lapply(df, function(x) {
   if (inherits(x, "haven_labelled") || inherits(x, "labelled")) return(as.character(x))
   if (is.factor(x)) return(as.character(x))
   x
 }), stringsAsFactors = FALSE)
+${objectName} <- df
 
-col_info <- lapply(names(df), function(nm) {
-  col <- df[[nm]]
-  ct <- if (is.numeric(col)) "numeric" else if (is.logical(col)) "logical" else "character"
-  r <- list(name=nm, type=ct, missingCount=sum(is.na(col)), uniqueCount=length(unique(na.omit(col))))
-  if (ct=="numeric") {
-    r[["min"]]<-round(min(col,na.rm=T),4); r[["max"]]<-round(max(col,na.rm=T),4)
-    r[["mean"]]<-round(mean(col,na.rm=T),4); r[["sd"]]<-round(sd(col,na.rm=T),4)
-  }
-  r
-})
-preview <- lapply(seq_len(min(nrow(df),500)), function(i) {
-  row <- as.list(df[i,])
-  lapply(row, function(v) if (length(v)==1 && is.na(v)) NULL else v)
-})
-cat(toJSON(list(success=TRUE,data=list(rows=nrow(df),columns=col_info,preview=preview)),
-  auto_unbox=TRUE, null="null"))
+${buildRDataFrameResultScript({
+  rScript: readCmd,
+  successMessage: `Imported ${fileName}`,
+  previewRows: DEFAULT_GRID_PREVIEW_ROWS,
+})}
 `
         const rResult = await psychr.r?.run(inspectScript)
         if (!rResult) {
@@ -200,31 +205,41 @@ cat(toJSON(list(success=TRUE,data=list(rows=nrow(df),columns=col_info,preview=pr
         }
         const d = (rResult.data ?? rResult) as Record<string, unknown>
         columns = (d.columns as DataColumn[]) ?? []
-        data = (d.preview as Record<string, unknown>[]) ?? []
+        data = (d.full_data as Record<string, unknown>[]) ?? []
+        previewData = (d.preview as Record<string, unknown>[]) ?? data.slice(0, DEFAULT_GRID_PREVIEW_ROWS)
+        rowCount = Number(d.rows ?? data.length)
       }
 
       // ── Step 3: store dataset ─────────────────────────────────────────────
       const dataset: Dataset = {
         id: `dataset_${Date.now()}`,
         name: fileName,
+        objectName,
         path: filePath,
-        rows: data.length,
+        rows: rowCount,
         columns,
         data,
+        previewData,
         isDuckDB: false,
         importedAt: new Date(),
       }
       addDataset(dataset)
-      appendToScript(`# Import dataset\n${readCmd}\n`)
+      const importScript = buildImportScript(ext, filePath, dataset.objectName)
+      if (datasets.length === 0) {
+        setSessionScript(importScript)
+      } else if (!sessionScript.includes(importScript)) {
+        const nextScript = sessionScript.trimEnd()
+        setSessionScript(`${nextScript}\n\n${buildImportCommand(ext, filePath, dataset.objectName)}`)
+      }
 
     } finally {
       setIsLoading(false)
     }
-  }, [addDataset, appendToScript])
+  }, [addDataset, datasets, sessionScript, setSessionScript])
 
   // Cap visible rows to 500 for performance — the full dataset is always in memory
   // and sent to R; this only limits what the HTML table renders.
-  const MAX_DISPLAY_ROWS = 500
+  const MAX_DISPLAY_ROWS = DEFAULT_GRID_PREVIEW_ROWS
 
   const filteredData = filterText
     ? displayData.filter((row) =>
@@ -428,8 +443,11 @@ cat(toJSON(list(success=TRUE,data=list(rows=nrow(df),columns=col_info,preview=pr
           </div>
         </div>
       }
-      rightWidth="340px"
-      right={<RConsole />}
+      rightWidth="520px"
+      rightResizable
+      rightCollapsible
+      rightTabLabel="R Workspace"
+      right={<RWorkspace />}
     />
   )
 }

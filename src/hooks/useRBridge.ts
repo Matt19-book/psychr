@@ -21,6 +21,7 @@
 
 import { useState, useCallback } from 'react'
 import { usePsychrStore } from '../store'
+import { buildWorkspaceInjection, replaceDfAlias } from '../utils/r-script'
 
 export interface UseRBridgeReturn {
   run: (script: string, label?: string) => Promise<Record<string, unknown> | null>
@@ -29,33 +30,11 @@ export interface UseRBridgeReturn {
   clearError: () => void
 }
 
-/**
- * Serialize dataset rows to R code that creates a `df` data frame.
- *
- * Uses JSON round-trip (JS → JSON string → R jsonlite::fromJSON) which
- * correctly handles all column types including NA, numeric, and character.
- * Caps at 5,000 rows to keep the inline script size manageable.
- *
- * Exported so RConsole and other components can use the same injection
- * without duplicating the logic.
- */
-export function buildDataInjection(data: Record<string, unknown>[]): string {
-  if (!data || data.length === 0) return ''
-  const rows = data.slice(0, 5000)
-  // Escape backslashes first, then single-quotes, for safe R string literal embedding
-  const json = JSON.stringify(rows)
-    .replace(/\\/g, '\\\\')
-    .replace(/'/g, "\\'")
-  return (
-    `df <- as.data.frame(jsonlite::fromJSON('${json}'), stringsAsFactors = FALSE)\n` +
-    `df <- type.convert(df, as.is = TRUE)\n`
-  )
-}
-
 export function useRBridge(): UseRBridgeReturn {
   const [isRunning, setIsRunning] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const appendToScript = usePsychrStore((s) => s.appendToScript)
+  const datasets = usePsychrStore((s) => s.datasets)
   const activeDataset = usePsychrStore((s) => s.activeDataset)
 
   const run = useCallback(
@@ -64,11 +43,15 @@ export function useRBridge(): UseRBridgeReturn {
       setError(null)
 
       // Prepend dataset injection if a dataset is loaded
-      const dataInjection = activeDataset?.data?.length
-        ? buildDataInjection(activeDataset.data)
-        : ''
+      const workspaceInjection = buildWorkspaceInjection(
+        datasets.map((dataset) => ({ objectName: dataset.objectName, data: dataset.data })),
+        activeDataset?.objectName
+      )
 
-      const fullScript = dataInjection + script
+      const activeObjectName = activeDataset?.objectName ?? 'data'
+      const fullScript = `${workspaceInjection}
+
+${script}`
 
       try {
         // window.psychr is typed in src/types/electron.d.ts
@@ -85,7 +68,8 @@ export function useRBridge(): UseRBridgeReturn {
         }
 
         // Append clean R snippet to the session script for reproducibility
-        const snippet = result.r_script || `# ${label || 'Analysis'}\n${script}`
+        const rawSnippet = result.r_script || `# ${label || 'Analysis'}\n${script}`
+        const snippet = replaceDfAlias(rawSnippet, activeObjectName)
         appendToScript(snippet)
 
         // Return result.data if present; otherwise fall back to the full result
@@ -98,7 +82,7 @@ export function useRBridge(): UseRBridgeReturn {
         setIsRunning(false)
       }
     },
-    [appendToScript, activeDataset]
+    [appendToScript, activeDataset, datasets]
   )
 
   const clearError = useCallback(() => setError(null), [])

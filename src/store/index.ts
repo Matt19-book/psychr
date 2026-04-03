@@ -28,10 +28,12 @@ export interface DataColumn {
 export interface Dataset {
   id: string
   name: string
+  objectName: string
   path?: string
   rows: number
   columns: DataColumn[]
-  data: Record<string, unknown>[]     // In-memory rows (null if DuckDB mode)
+  data: Record<string, unknown>[]     // Authoritative in-memory rows
+  previewData: Record<string, unknown>[] // Lightweight grid preview
   isDuckDB: boolean
   duckdbPath?: string                 // Parquet/CSV path for DuckDB queries
   importedAt: Date
@@ -112,8 +114,11 @@ interface PsychrState {
   datasets: Dataset[]
   activeDatasetId: string | null
   addDataset: (dataset: Dataset) => void
+  syncDatasets: (datasets: Dataset[], activeObjectName?: string | null) => void
   removeDataset: (id: string) => void
   setActiveDataset: (id: string) => void
+  setActiveDatasetByObjectName: (objectName: string) => void
+  renameDatasetObject: (id: string, nextObjectName: string) => void
   updateDataset: (id: string, updates: Partial<Dataset>) => void
   activeDataset: Dataset | null
 
@@ -125,7 +130,19 @@ interface PsychrState {
   // Session R script (accumulates all R code run this session)
   sessionScript: string
   appendToScript: (snippet: string) => void
+  setSessionScript: (script: string) => void
   clearScript: () => void
+
+  // Console history
+  consoleHistory: Array<{
+    id: string
+    command: string
+    output?: string[]
+    error?: string
+    timestamp: Date
+  }>
+  addConsoleEntry: (entry: PsychrState['consoleHistory'][number]) => void
+  clearConsoleHistory: () => void
 
   // Citations
   citations: Citation[]
@@ -184,6 +201,21 @@ export const usePsychrStore = create<PsychrState>()(
             activeDataset: newDatasets.find((d) => d.id === newActiveId) ?? null,
           }
         }),
+      syncDatasets: (datasets, activeObjectName = null) =>
+        set((state) => {
+          const currentActive = state.activeDataset
+          const nextActive =
+            (activeObjectName && datasets.find((d) => d.objectName === activeObjectName)) ||
+            (currentActive && datasets.find((d) => d.objectName === currentActive.objectName)) ||
+            datasets[0] ||
+            null
+
+          return {
+            datasets,
+            activeDatasetId: nextActive?.id ?? null,
+            activeDataset: nextActive,
+          }
+        }),
       removeDataset: (id) =>
         set((state) => {
           const newDatasets = state.datasets.filter((d) => d.id !== id)
@@ -199,6 +231,24 @@ export const usePsychrStore = create<PsychrState>()(
           activeDatasetId: id,
           activeDataset: state.datasets.find((d) => d.id === id) ?? null,
         })),
+      setActiveDatasetByObjectName: (objectName) =>
+        set((state) => {
+          const nextActive = state.datasets.find((d) => d.objectName === objectName) ?? null
+          return {
+            activeDatasetId: nextActive?.id ?? null,
+            activeDataset: nextActive,
+          }
+        }),
+      renameDatasetObject: (id, nextObjectName) =>
+        set((state) => {
+          const newDatasets = state.datasets.map((dataset) =>
+            dataset.id === id ? { ...dataset, objectName: nextObjectName } : dataset
+          )
+          return {
+            datasets: newDatasets,
+            activeDataset: newDatasets.find((d) => d.id === state.activeDatasetId) ?? null,
+          }
+        }),
       updateDataset: (id, updates) =>
         set((state) => {
           const newDatasets = state.datasets.map((d) => (d.id === id ? { ...d, ...updates } : d))
@@ -220,8 +270,15 @@ export const usePsychrStore = create<PsychrState>()(
         set((state) => ({
           sessionScript: state.sessionScript + '\n' + snippet + '\n',
         })),
+      setSessionScript: (script) => set({ sessionScript: script }),
       clearScript: () =>
         set({ sessionScript: '# PsychR Session Script\n# Generated automatically — every analysis is recorded here\n\n' }),
+
+      // Console history
+      consoleHistory: [],
+      addConsoleEntry: (entry) =>
+        set((state) => ({ consoleHistory: [...state.consoleHistory, entry] })),
+      clearConsoleHistory: () => set({ consoleHistory: [] }),
 
       // Citations
       citations: [],

@@ -6,9 +6,10 @@
  * Export via Quarto CLI or as HTML preview.
  */
 
-import { useState, useCallback } from 'react'
+import { useState } from 'react'
 import { WorkspaceLayout, PanelHeader } from '../../components/layout/WorkspaceLayout'
 import { usePsychrStore } from '../../store'
+import { renderMarkdownPreview } from '../../utils/markdown-preview'
 
 const STARTER_TEMPLATE = `---
 title: "Research Report"
@@ -65,7 +66,6 @@ export function MarkdownTab() {
   const sessionScript = usePsychrStore((s) => s.sessionScript)
 
   const [showPreview, setShowPreview] = useState(true)
-  const [isRendering, setIsRendering] = useState(false)
 
   const handleLoadTemplate = () => {
     if (markdownContent.trim().length > 50) {
@@ -97,21 +97,6 @@ export function MarkdownTab() {
     a.download = 'psychr_session_script.R'
     a.click()
   }
-
-  // Simple markdown-to-HTML for preview (basic, not full Quarto)
-  const renderPreview = useCallback((md: string) => {
-    return md
-      .replace(/^#{3}\s+(.+)$/gm, '<h3 class="text-base font-bold text-gray-800 mt-4 mb-1">$1</h3>')
-      .replace(/^#{2}\s+(.+)$/gm, '<h2 class="text-lg font-bold text-gray-800 mt-5 mb-2">$1</h2>')
-      .replace(/^#{1}\s+(.+)$/gm, '<h1 class="text-xl font-bold text-gray-900 mt-6 mb-3">$1</h1>')
-      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-      .replace(/\*(.+?)\*/g, '<em>$1</em>')
-      .replace(/`([^`]+)`/g, '<code class="bg-gray-100 px-1 rounded text-sm font-mono">$1</code>')
-      .replace(/```[\s\S]*?```/g, '<pre class="bg-gray-100 rounded p-3 text-xs font-mono overflow-x-auto my-2">Code block</pre>')
-      .replace(/^---[\s\S]*?---/, '<div class="bg-gray-100 rounded p-3 text-xs font-mono mb-4">YAML frontmatter</div>')
-      .replace(/\n\n/g, '</p><p class="mb-2">')
-      .replace(/\n/g, '<br>')
-  }, [])
 
   return (
     <div className="flex h-full overflow-hidden">
@@ -185,12 +170,9 @@ export function MarkdownTab() {
           {/* Preview */}
           {showPreview && (
             <div className="flex-1 min-w-0 overflow-y-auto p-8 bg-white">
-              <div
-                className="prose prose-sm max-w-none"
-                dangerouslySetInnerHTML={{
-                  __html: `<p class="mb-2">${renderPreview(markdownContent)}</p>`,
-                }}
-              />
+              <div className="prose prose-sm max-w-none">
+                {renderMarkdownPreview(markdownContent)}
+              </div>
             </div>
           )}
         </div>

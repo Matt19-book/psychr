@@ -11,6 +11,7 @@
 import { useState } from 'react'
 import { usePsychrStore, DataColumn } from '../../store'
 import { useRBridge } from '../../hooks/useRBridge'
+import { buildRDataFrameResultScript, quoteRAccess, quoteRName, quoteRNames, quoteRString } from '../../utils/r-script'
 
 // eslint-disable-next-line @typescript-eslint/no-empty-interface
 interface WranglingPanelProps {}
@@ -77,37 +78,10 @@ ${needsTidyr ? 'library(tidyr)' : ''}
 ${rExpr}
 
 # Export updated df
-n_rows <- nrow(df)
-n_cols <- ncol(df)
-
-col_info <- lapply(names(df), function(col_name) {
-  col <- df[[col_name]]
-  col_type <- if (is.numeric(col)) "numeric"
-              else if (is.factor(col)) "factor"
-              else if (is.logical(col)) "logical"
-              else "character"
-  result <- list(name = col_name, type = col_type,
-                 missingCount = sum(is.na(col)),
-                 uniqueCount = length(unique(col[!is.na(col)])))
-  if (col_type == "numeric") {
-    result$min  <- round(min(col, na.rm = TRUE), 4)
-    result$max  <- round(max(col, na.rm = TRUE), 4)
-    result$mean <- round(mean(col, na.rm = TRUE), 4)
-    result$sd   <- round(sd(col, na.rm = TRUE), 4)
-  }
-  result
-})
-
-preview <- lapply(seq_len(min(nrow(df), 200)), function(i) {
-  row <- as.list(df[i, , drop = FALSE])
-  lapply(row, function(v) if (length(v) == 0 || (length(v) == 1 && is.na(v))) NULL else v)
-})
-
-cat(toJSON(list(
-  success  = TRUE,
-  r_script = paste0("# ${label}\\n${rExpr.replace(/\n/g, '\\n')}\\n"),
-  data = list(rows = n_rows, columns = col_info, preview = preview)
-), auto_unbox = TRUE, null = "null"))
+${buildRDataFrameResultScript({
+  rScript: `# ${label}\n${rExpr}\n`,
+  successMessage: `${label} completed.`,
+})}
 `
 
     const result = await onRun(script, label)
@@ -119,7 +93,8 @@ cat(toJSON(list(
       updateDataset(activeDataset.id, {
         rows: result.rows as number,
         columns: result.columns as DataColumn[],
-        data: result.preview as Record<string, unknown>[],
+        data: result.full_data as Record<string, unknown>[],
+        previewData: result.preview as Record<string, unknown>[],
       })
     }
   }
@@ -300,12 +275,12 @@ function FilterDialog({ cols, onApply, onClose }: {
   const build = () => {
     if (!col || val === '') return
     let condition: string
-    if (op === 'contains') condition = `grepl(${JSON.stringify(val)}, ${col}, ignore.case = TRUE)`
-    else if (op === 'starts_with') condition = `startsWith(as.character(${col}), ${JSON.stringify(val)})`
-    else if (op === 'ends_with') condition = `endsWith(as.character(${col}), ${JSON.stringify(val)})`
+    if (op === 'contains') condition = `grepl(${quoteRString(val)}, as.character(${quoteRAccess(col, '.data')}), ignore.case = TRUE)`
+    else if (op === 'starts_with') condition = `startsWith(as.character(${quoteRAccess(col, '.data')}), ${quoteRString(val)})`
+    else if (op === 'ends_with') condition = `endsWith(as.character(${quoteRAccess(col, '.data')}), ${quoteRString(val)})`
     else {
-      const rVal = isNum ? val : JSON.stringify(val)
-      condition = `${col} ${op} ${rVal}`
+      const rVal = isNum ? String(Number(val)) : quoteRString(val)
+      condition = `${quoteRAccess(col, '.data')} ${op} ${rVal}`
     }
     onApply(`df <- df %>% filter(${condition})`, `Filter: ${col} ${op} ${val}`)
   }
@@ -345,7 +320,7 @@ function SortDialog({ cols, onApply, onClose }: {
 
   const build = () => {
     if (!col) return
-    const expr = dir === 'desc' ? `desc(${col})` : col
+    const expr = dir === 'desc' ? `desc(${quoteRAccess(col, '.data')})` : quoteRAccess(col, '.data')
     onApply(`df <- df %>% arrange(${expr})`, `Sort by ${col} (${dir})`)
   }
 
@@ -378,7 +353,7 @@ function RemoveNADialog({ cols, onApply, onClose }: {
   const build = () => {
     if (mode === 'any') onApply(`df <- df %>% filter(if_any(everything(), ~ !is.na(.)))`, 'Remove rows with any NA')
     else if (mode === 'all') onApply(`df <- df %>% filter(if_all(everything(), ~ !is.na(.)))`, 'Remove rows where all are NA')
-    else if (col) onApply(`df <- df %>% filter(!is.na(${col}))`, `Remove rows where ${col} is NA`)
+    else if (col) onApply(`df <- df %>% filter(!is.na(${quoteRAccess(col, '.data')}))`, `Remove rows where ${col} is NA`)
   }
 
   return (
@@ -420,7 +395,7 @@ function SelectDialog({ cols, onApply, onClose }: {
 
   const build = () => {
     if (selected.length === 0) return
-    onApply(`df <- df %>% select(${selected.join(', ')})`, `Select ${selected.length} variables`)
+    onApply(`df <- df %>% select(all_of(${quoteRNames(selected)}))`, `Select ${selected.length} variables`)
   }
 
   return (
@@ -447,7 +422,7 @@ function DropDialog({ cols, onApply, onClose }: {
 
   const build = () => {
     if (toDrop.length === 0) return
-    onApply(`df <- df %>% select(-c(${toDrop.join(', ')}))`, `Drop: ${toDrop.join(', ')}`)
+    onApply(`df <- df %>% select(-all_of(${quoteRNames(toDrop)}))`, `Drop: ${toDrop.join(', ')}`)
   }
 
   return (
@@ -477,7 +452,7 @@ function RenameDialog({ cols, onApply, onClose }: {
     if (!oldName) { setErr('Select a column to rename.'); return }
     if (!newName.trim()) { setErr('Enter a new variable name.'); return }
     setErr('')
-    onApply(`df <- df %>% rename(${newName.trim()} = ${oldName})`, `Rename ${oldName} to ${newName.trim()}`)
+    onApply(`names(df)[names(df) == ${quoteRString(oldName)}] <- ${quoteRString(newName.trim())}`, `Rename ${oldName} to ${newName.trim()}`)
   }
 
   return (
@@ -509,7 +484,7 @@ function TypeDialog({ cols, onApply, onClose }: {
   const build = () => {
     if (!col) return
     const fn = convFn[targetType]
-    onApply(`df <- df %>% mutate(${col} = ${fn}(${col}))`, `Convert ${col} to ${targetType}`)
+    onApply(`df <- df %>% mutate(${quoteRName(col)} = ${fn}(${quoteRAccess(col, '.data')}))`, `Convert ${col} to ${targetType}`)
   }
 
   return (
@@ -539,7 +514,7 @@ function MutateDialog({ cols, onApply, onClose }: {
 
   const build = () => {
     if (!newCol || !expr) return
-    onApply(`df <- df %>% mutate(${newCol} = ${expr})`, `Mutate: ${newCol} = ${expr}`)
+    onApply(`df <- df %>% mutate(${quoteRName(newCol)} = ${expr})`, `Mutate: ${newCol} = ${expr}`)
   }
 
   return (
@@ -588,8 +563,8 @@ function RecodeDialog({ cols, onApply, onClose }: {
     if (!col) return
     const valid = pairs.filter((p) => p.from && p.to)
     if (valid.length === 0) return
-    const mappings = valid.map((p) => `"${p.from}" = "${p.to}"`).join(', ')
-    onApply(`df <- df %>% mutate(${col} = recode(as.character(${col}), ${mappings}))`, `Recode ${col}`)
+    const mappings = valid.map((p) => `${quoteRString(p.from)} = ${quoteRString(p.to)}`).join(', ')
+    onApply(`df <- df %>% mutate(${quoteRName(col)} = recode(as.character(${quoteRAccess(col, '.data')}), ${mappings}))`, `Recode ${col}`)
   }
 
   return (
@@ -626,9 +601,8 @@ function PivotLongerDialog({ cols, onApply, onClose }: {
 
   const build = () => {
     if (pivotCols.length < 2) return
-    const colStr = pivotCols.map((c) => `"${c}"`).join(', ')
     onApply(
-      `df <- df %>% pivot_longer(cols = c(${colStr}), names_to = "${namesTo}", values_to = "${valuesTo}")`,
+      `df <- df %>% pivot_longer(cols = all_of(${quoteRNames(pivotCols)}), names_to = ${quoteRString(namesTo)}, values_to = ${quoteRString(valuesTo)})`,
       `Pivot Longer (${pivotCols.length} cols)`,
       true
     )
@@ -674,7 +648,7 @@ function PivotWiderDialog({ cols, onApply, onClose }: {
   const build = () => {
     if (!namesFrom || !valuesFrom) return
     onApply(
-      `df <- df %>% pivot_wider(names_from = "${namesFrom}", values_from = "${valuesFrom}")`,
+      `df <- df %>% pivot_wider(names_from = all_of(${quoteRString(namesFrom)}), values_from = all_of(${quoteRString(valuesFrom)}))`,
       `Pivot Wider (${namesFrom} → columns)`,
       true
     )
@@ -707,10 +681,10 @@ function SummarizeDialog({ cols, numericCols, onApply, onClose }: {
     if (fns.length === 0) { setErr('Select at least one summary function.'); return }
     setErr('')
     const summaries = fns.map((f) =>
-      f === 'n' ? `n = n()` : `${summaryCol}_${f} = ${f}(${summaryCol}, na.rm = TRUE)`
+      f === 'n' ? 'n = n()' : `${quoteRName(`${summaryCol}_${f}`)} = ${f}(${quoteRAccess(summaryCol, '.data')}, na.rm = TRUE)`
     ).join(', ')
 
-    const groupPart = groupBy ? `group_by(${groupBy}) %>% ` : ''
+    const groupPart = groupBy ? `group_by(across(all_of(${quoteRString(groupBy)}))) %>% ` : ''
     onApply(
       `df <- df %>% ${groupPart}summarize(${summaries}, .groups = "drop")`,
       `Summarize ${summaryCol}${groupBy ? ' by ' + groupBy : ''}`

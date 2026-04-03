@@ -67,7 +67,7 @@ ipcMain.handle('dialog:openFile', async (_event, options) => {
   const result = await dialog.showOpenDialog(mainWindow!, {
     properties: ['openFile'],
     filters: [
-      { name: 'Data Files', extensions: ['csv', 'xlsx', 'xls', 'sav', 'rds', 'tsv', 'parquet', 'json'] },
+      { name: 'Data Files', extensions: ['csv', 'tsv', 'xlsx', 'xls', 'sav', 'rds'] },
       { name: 'All Files', extensions: ['*'] },
     ],
     ...options,
@@ -86,13 +86,18 @@ ipcMain.handle('shell:openExternal', async (_event, url: string) => {
   shell.openExternal(url)
 })
 
-// Read a file from disk and return its content as a UTF-8 string
-// Used by the renderer to parse CSV/TSV without going through R
-ipcMain.handle('file:read', async (_event, filePath: string) => {
+// Read a text import file from disk and return its content as UTF-8.
+// The renderer only needs this for CSV/TSV imports.
+ipcMain.handle('file:readTextImport', async (_event, filePath: string) => {
   try {
+    const ext = filePath.split('.').pop()?.toLowerCase() ?? ''
+    if (!SUPPORTED_IMPORT_TEXT_EXTENSIONS.has(ext)) {
+      return { success: false, error: `Unsupported text import type ".${ext || 'unknown'}".` }
+    }
     const content = readFileSync(filePath, 'utf-8')
     return { success: true, content }
   } catch (err: any) {
     return { success: false, error: err.message }
   }
 })
+const SUPPORTED_IMPORT_TEXT_EXTENSIONS = new Set(['csv', 'tsv'])
