@@ -124,7 +124,7 @@ suppressPackageStartupMessages({
 # This correctly handles nested JSON (previous approach using the last '{' in
 # the full text broke nested objects by starting mid-JSON).
 # Package messages never start with '{', so this safely skips preamble.
-.psychr_json_lines <- grep("^\\{", .psychr_captured, value = TRUE)
+.psychr_json_lines <- grep("^[{]", .psychr_captured, value = TRUE)
 if (length(.psychr_json_lines) == 0) {
   cat(jsonlite::toJSON(list(
     success = jsonlite::unbox(FALSE),
