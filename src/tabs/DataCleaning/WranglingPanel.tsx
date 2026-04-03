@@ -53,6 +53,8 @@ const CATEGORIES = ['Rows', 'Columns', 'Values', 'Reshape', 'Summarize']
 export function WranglingPanel({ onRun }: WranglingPanelProps) {
   const [activeDialog, setActiveDialog] = useState<DialogType>(null)
   const [expandedCats, setExpandedCats] = useState(new Set(CATEGORIES))
+  const [wrangleError, setWrangleError] = useState<string | null>(null)
+  const [isWrangling, setIsWrangling] = useState(false)
   const activeDataset = usePsychrStore((s) => s.activeDataset)
   const updateDataset = usePsychrStore((s) => s.updateDataset)
 
@@ -109,8 +111,17 @@ cat(toJSON(list(
 ), auto_unbox = TRUE, null = "null"))
 `
 
+    setIsWrangling(true)
+    setWrangleError(null)
     const result = await onRun(script, label)
-    if (result && activeDataset) {
+    setIsWrangling(false)
+
+    if (!result) {
+      setWrangleError('R operation failed. Check that dplyr and tidyr are installed.')
+      return
+    }
+
+    if (activeDataset) {
       updateDataset(activeDataset.id, {
         rows: result.rows as number,
         columns: result.columns as DataColumn[],
@@ -129,6 +140,18 @@ cat(toJSON(list(
         <p className="text-xs font-semibold text-gray-700">Data Wrangling</p>
         <p className="text-xs text-gray-400">tidyverse · dplyr · SAS operations</p>
       </div>
+      {isWrangling && (
+        <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border-b border-blue-200">
+          <div className="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+          <span className="text-xs text-blue-700">Running…</span>
+        </div>
+      )}
+      {wrangleError && (
+        <div className="flex items-start gap-2 px-3 py-2 bg-red-50 border-b border-red-200">
+          <span className="text-xs text-red-700 flex-1">{wrangleError}</span>
+          <button onClick={() => setWrangleError(null)} className="text-red-400 hover:text-red-600 text-sm leading-none">×</button>
+        </div>
+      )}
 
       {!activeDataset && (
         <div className="p-3 text-xs text-gray-400 italic">

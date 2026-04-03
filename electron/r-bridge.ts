@@ -120,19 +120,18 @@ suppressPackageStartupMessages({
   })
 )
 
-# Find the last JSON object in the captured output.
-# Using the last '{' handles the case where a package prints something
-# before our cat(toJSON(...)) call.
-.psychr_text <- paste(.psychr_captured, collapse = "\\n")
-.psychr_positions <- gregexpr("\\\\{", .psychr_text, fixed = FALSE)[[1]]
-if (length(.psychr_positions) == 0 || .psychr_positions[1] == -1L) {
+# Find the last line of captured output that starts with '{'.
+# This correctly handles nested JSON (previous approach using the last '{' in
+# the full text broke nested objects by starting mid-JSON).
+# Package messages never start with '{', so this safely skips preamble.
+.psychr_json_lines <- grep("^\\{", .psychr_captured, value = TRUE)
+if (length(.psychr_json_lines) == 0) {
   cat(jsonlite::toJSON(list(
     success = jsonlite::unbox(FALSE),
     error   = jsonlite::unbox("No JSON output from R script")
   )))
 } else {
-  .psychr_last <- .psychr_positions[length(.psychr_positions)]
-  cat(substring(.psychr_text, .psychr_last))
+  cat(.psychr_json_lines[length(.psychr_json_lines)])
 }
 `
 
