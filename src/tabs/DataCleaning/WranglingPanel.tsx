@@ -111,11 +111,9 @@ cat(toJSON(list(
 `
 
     const result = await onRun(script, label)
+    setActiveDialog(null) // always close so error bar is visible on failure
 
-    if (!result) {
-      // wrangleError is set automatically by useRBridge
-      return
-    }
+    if (!result) return
 
     if (activeDataset) {
       updateDataset(activeDataset.id, {
@@ -124,7 +122,6 @@ cat(toJSON(list(
         data: result.preview as Record<string, unknown>[],
       })
     }
-    setActiveDialog(null)
   }
 
   const cols = activeDataset?.columns ?? []
