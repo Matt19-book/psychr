@@ -474,21 +474,25 @@ function RenameDialog({ cols, onApply, onClose }: {
 }) {
   const [oldName, setOldName] = useState('')
   const [newName, setNewName] = useState('')
+  const [err, setErr] = useState('')
 
   const build = () => {
-    if (!oldName || !newName) return
-    onApply(`df <- df %>% rename(${newName} = ${oldName})`, `Rename ${oldName} → ${newName}`)
+    if (!oldName) { setErr('Select a column to rename.'); return }
+    if (!newName.trim()) { setErr('Enter a new variable name.'); return }
+    setErr('')
+    onApply(`df <- df %>% rename(${newName.trim()} = ${oldName})`, `Rename ${oldName} to ${newName.trim()}`)
   }
 
   return (
     <DialogShell title="Rename Variable" subtitle="dplyr::rename()" onClose={onClose} onApply={build}>
-      <ColSelect label="Current name" cols={cols} value={oldName} onChange={setOldName} />
+      <ColSelect label="Current name" cols={cols} value={oldName} onChange={(v) => { setOldName(v); setErr('') }} />
       <div>
         <label className="block text-xs font-medium text-gray-700 mb-1">New name</label>
-        <input value={newName} onChange={(e) => setNewName(e.target.value)}
+        <input value={newName} onChange={(e) => { setNewName(e.target.value); setErr('') }}
           className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-psychr-midblue"
           placeholder="new_variable_name" />
       </div>
+      {err && <p className="text-xs text-red-600">{err}</p>}
     </DialogShell>
   )
 }
@@ -696,12 +700,15 @@ function SummarizeDialog({ cols, numericCols, onApply, onClose }: {
   const [groupBy, setGroupBy] = useState('')
   const [summaryCol, setSummaryCol] = useState('')
   const [fns, setFns] = useState(['mean', 'sd', 'n'])
+  const [err, setErr] = useState('')
 
   const allFns = ['mean', 'sd', 'median', 'min', 'max', 'n', 'sum']
   const toggleFn = (f: string) => setFns((p) => p.includes(f) ? p.filter((v) => v !== f) : [...p, f])
 
   const build = () => {
-    if (!summaryCol) return
+    if (!summaryCol) { setErr('Select a column to summarize.'); return }
+    if (fns.length === 0) { setErr('Select at least one summary function.'); return }
+    setErr('')
     const summaries = fns.map((f) =>
       f === 'n' ? `n = n()` : `${summaryCol}_${f} = ${f}(${summaryCol}, na.rm = TRUE)`
     ).join(', ')
@@ -722,12 +729,13 @@ function SummarizeDialog({ cols, numericCols, onApply, onClose }: {
         <div className="flex flex-wrap gap-2">
           {allFns.map((f) => (
             <label key={f} className="flex items-center gap-1 cursor-pointer">
-              <input type="checkbox" checked={fns.includes(f)} onChange={() => toggleFn(f)} className="accent-psychr-midblue" />
+              <input type="checkbox" checked={fns.includes(f)} onChange={() => { toggleFn(f); setErr('') }} className="accent-psychr-midblue" />
               <span className="text-xs font-mono text-gray-700">{f}()</span>
             </label>
           ))}
         </div>
       </div>
+      {err && <p className="text-xs text-red-600">{err}</p>}
     </DialogShell>
   )
 }
