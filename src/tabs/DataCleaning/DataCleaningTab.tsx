@@ -103,7 +103,7 @@ export function DataCleaningTab() {
   const activeDataset = usePsychrStore((s) => s.activeDataset)
   const setActiveDataset = usePsychrStore((s) => s.setActiveDataset)
   const appendToScript = usePsychrStore((s) => s.appendToScript)
-  const { run: runR } = useRBridge()
+  useRBridge() // R bridge initialised here for data import operations
 
   const [isLoading, setIsLoading] = useState(false)
   const [importError, setImportError] = useState<string | null>(null)
@@ -353,7 +353,7 @@ cat(toJSON(list(success=TRUE,data=list(rows=nrow(df),columns=col_info,preview=pr
 
           {/* Wrangling panel */}
           {leftTab === 'wrangle' && (
-            <WranglingPanel onRun={runR} />
+            <WranglingPanel />
           )}
         </div>
       }

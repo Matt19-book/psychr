@@ -10,10 +10,10 @@
 
 import { useState } from 'react'
 import { usePsychrStore, DataColumn } from '../../store'
+import { useRBridge } from '../../hooks/useRBridge'
 
-interface WranglingPanelProps {
-  onRun: (script: string, label: string) => Promise<Record<string, unknown> | null>
-}
+// eslint-disable-next-line @typescript-eslint/no-empty-interface
+interface WranglingPanelProps {}
 
 type DialogType =
   | 'filter' | 'select' | 'drop' | 'rename' | 'mutate'
@@ -50,11 +50,10 @@ const OPERATIONS: Operation[] = [
 
 const CATEGORIES = ['Rows', 'Columns', 'Values', 'Reshape', 'Summarize']
 
-export function WranglingPanel({ onRun }: WranglingPanelProps) {
+export function WranglingPanel(_props: WranglingPanelProps) {
   const [activeDialog, setActiveDialog] = useState<DialogType>(null)
   const [expandedCats, setExpandedCats] = useState(new Set(CATEGORIES))
-  const [wrangleError, setWrangleError] = useState<string | null>(null)
-  const [isWrangling, setIsWrangling] = useState(false)
+  const { run: onRun, isRunning: isWrangling, error: wrangleError, clearError } = useRBridge()
   const activeDataset = usePsychrStore((s) => s.activeDataset)
   const updateDataset = usePsychrStore((s) => s.updateDataset)
 
@@ -111,13 +110,10 @@ cat(toJSON(list(
 ), auto_unbox = TRUE, null = "null"))
 `
 
-    setIsWrangling(true)
-    setWrangleError(null)
     const result = await onRun(script, label)
-    setIsWrangling(false)
 
     if (!result) {
-      setWrangleError('R operation failed. Check that dplyr and tidyr are installed.')
+      // wrangleError is set automatically by useRBridge
       return
     }
 
@@ -149,7 +145,7 @@ cat(toJSON(list(
       {wrangleError && (
         <div className="flex items-start gap-2 px-3 py-2 bg-red-50 border-b border-red-200">
           <span className="text-xs text-red-700 flex-1">{wrangleError}</span>
-          <button onClick={() => setWrangleError(null)} className="text-red-400 hover:text-red-600 text-sm leading-none">×</button>
+          <button onClick={clearError} className="text-red-400 hover:text-red-600 text-sm leading-none">×</button>
         </div>
       )}
 
