@@ -237,7 +237,7 @@ if (length(.psychr_positions) == 0 || .psychr_positions[1] == -1L) {
         platform = info$platform
       ), auto_unbox = TRUE))
     `)
-    return (result.data?.version as string) || (result as Record<string, unknown>).version as string || 'unknown'
+    return (result.data?.version as string) || (result as unknown as Record<string, unknown>).version as string || 'unknown'
   }
 
   /** Update the R executable path (e.g., user sets custom path in settings). */

@@ -41,10 +41,8 @@ export default function App() {
   useEffect(() => {
     const checkR = async () => {
       try {
-        // @ts-expect-error — window.psychr injected by preload
         const result = await window.psychr?.r?.check()
         if (result?.available) {
-          // @ts-expect-error
           const version = await window.psychr?.r?.version()
           setRStatus(true, version)
         } else {

@@ -339,24 +339,24 @@ function ResultBlock({ result }: { result: AnalysisResult }) {
       {expanded && (
         <div className="p-4 space-y-3">
           {/* Main table */}
-          {result.output.table && (
+          {!!result.output.table && (
             <OutputTable data={result.output.table as Record<string, unknown>[]} />
           )}
           {/* Secondary tables (e.g. ANOVA group means, post-hoc) */}
-          {result.output.means && (
+          {!!result.output.means && (
             <>
               <p className="text-xs font-semibold text-gray-600 mt-2">Group Means</p>
               <OutputTable data={result.output.means as Record<string, unknown>[]} />
             </>
           )}
-          {result.output.posthoc && Array.isArray(result.output.posthoc) && (result.output.posthoc as unknown[]).length > 0 && (
+          {Array.isArray(result.output.posthoc) && (result.output.posthoc as unknown[]).length > 0 && (
             <>
               <p className="text-xs font-semibold text-gray-600 mt-2">Post-hoc Comparisons</p>
               <OutputTable data={result.output.posthoc as Record<string, unknown>[]} />
             </>
           )}
           {/* Model fit summary (regression) */}
-          {result.output.model_fit && (
+          {!!result.output.model_fit && (
             <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-600 font-mono bg-gray-50 rounded px-3 py-2 border border-gray-100">
               {Object.entries(result.output.model_fit as Record<string, unknown>).map(([k, v]) => (
                 <span key={k}><span className="text-gray-400">{k}:</span> {String(v)}</span>

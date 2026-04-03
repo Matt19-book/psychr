@@ -10,6 +10,7 @@
 export type RResult = {
   success: boolean
   data?: Record<string, unknown>
+  has_df?: boolean
   error?: string
   r_script?: string
   stderr?: string
