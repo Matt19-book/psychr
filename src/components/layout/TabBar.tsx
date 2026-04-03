@@ -5,6 +5,7 @@
  * highlighted; clicking switches the view.
  */
 
+import React from 'react'
 import { AppTab, usePsychrStore } from '../../store'
 
 interface TabDef {
@@ -75,7 +76,10 @@ export function TabBar() {
   return (
     <header className="bg-white border-b border-gray-200 shadow-sm select-none">
       {/* App title bar */}
-      <div className="flex items-center px-4 py-2 bg-psychr-blue">
+      <div
+        className="flex items-center pl-20 pr-4 py-2 bg-psychr-blue"
+        style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
+      >
         <div className="flex items-center gap-2">
           <span className="text-white font-bold text-lg tracking-tight">PsychR</span>
           <span className="text-blue-200 text-xs font-normal">v0.1.0 — beta</span>
