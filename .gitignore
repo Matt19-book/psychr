@@ -8,3 +8,10 @@ release/
 .env.local
 out/
 .claude/
+
+# OpenClaw sensitive/personal files
+USER.md
+MEMORY.md
+BOOTSTRAP.md
+.openclaw/
+memory/
